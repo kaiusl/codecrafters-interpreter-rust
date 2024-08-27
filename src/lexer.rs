@@ -42,6 +42,12 @@ impl<'a> Iterator for Lexer<'a> {
                 ')' => return Some(Ok(Token::RParen)),
                 '{' => return Some(Ok(Token::LBrace)),
                 '}' => return Some(Ok(Token::RBrace)),
+                ',' => return Some(Ok(Token::Comma)),
+                '.' => return Some(Ok(Token::Dot)),
+                '-' => return Some(Ok(Token::Minus)),
+                '+' => return Some(Ok(Token::Plus)),
+                ';' => return Some(Ok(Token::Semicolon)),
+                '*' => return Some(Ok(Token::Star)),
                 '\n' => {
                     self.line += 1;
                 }
@@ -57,6 +63,12 @@ pub enum Token {
     RParen,
     LBrace,
     RBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Star,
     Eof,
 }
 
@@ -67,6 +79,12 @@ impl Token {
             Token::RParen => "RIGHT_PAREN",
             Token::LBrace => "LEFT_BRACE",
             Token::RBrace => "RIGHT_BRACE",
+            Token::Comma => "COMMA",
+            Token::Dot => "DOT",
+            Token::Minus => "MINUS",
+            Token::Plus => "PLUS",
+            Token::Semicolon => "SEMICOLON",
+            Token::Star => "STAR",
             Token::Eof => "EOF",
         }
     }
@@ -77,13 +95,19 @@ impl Token {
             Token::RParen => ")",
             Token::LBrace => "{",
             Token::RBrace => "}",
+            Token::Comma => ",",
+            Token::Dot => ".",
+            Token::Minus => "-",
+            Token::Plus => "+",
+            Token::Semicolon => ";",
+            Token::Star => "*",
             Token::Eof => "",
         }
     }
 
     fn literal(&self) -> Cow<'static, str> {
         match self {
-            _ => Cow::Borrowed("null")
+            _ => Cow::Borrowed("null"),
         }
     }
 
