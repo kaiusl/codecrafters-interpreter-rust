@@ -6,7 +6,7 @@ pub enum LexerError<'a> {
 }
 
 #[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
-#[error("[line {line_number}] Error: Unexpeced character: {token}")]
+#[error("[line {line_number}] Error: Unexpected character: {token}")]
 pub struct UnknownTokenError<'a> {
     #[source_code]
     line: &'a str,
