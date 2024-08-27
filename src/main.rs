@@ -26,11 +26,19 @@ fn main() {
             });
 
             let lexer = Lexer::new(&file_contents);
+            let mut had_lexical_errors = false;
             for token in lexer {
                 match token {
                     Ok(token) => println!("{}", token.fmt_as_book()),
-                    Err(err) => eprintln!("{}", err),
+                    Err(err) => {
+                        had_lexical_errors = true;
+                        eprintln!("{}", err)
+                    }
                 }
+            }
+
+            if had_lexical_errors {
+                std::process::exit(65);
             }
         }
         _ => {
