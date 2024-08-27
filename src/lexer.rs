@@ -1,8 +1,11 @@
 use std::borrow::Cow;
 use std::fmt;
 
+mod error;
 #[cfg(test)]
 mod tests;
+
+pub use error::*;
 
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
@@ -24,7 +27,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = anyhow::Result<Token>;
+    type Item = Result<Token, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -51,7 +54,10 @@ impl<'a> Iterator for Lexer<'a> {
                 '\n' => {
                     self.line += 1;
                 }
-                _ => return Some(Err(anyhow::anyhow!("Unknown token: {}", c))),
+                _ => {
+                    let err = UnknownTokenError::new(self.input, self.line, c, (i, 1).into());
+                    return Some(Err(LexerError::UnknownToken(err)));
+                }
             }
         }
     }
