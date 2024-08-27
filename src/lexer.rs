@@ -40,6 +40,8 @@ impl<'a> Iterator for Lexer<'a> {
             match c {
                 '(' => return Some(Ok(Token::LParen)),
                 ')' => return Some(Ok(Token::RParen)),
+                '{' => return Some(Ok(Token::LBrace)),
+                '}' => return Some(Ok(Token::RBrace)),
                 '\n' => {
                     self.line += 1;
                 }
@@ -53,6 +55,8 @@ impl<'a> Iterator for Lexer<'a> {
 pub enum Token {
     LParen,
     RParen,
+    LBrace,
+    RBrace,
     Eof,
 }
 
@@ -61,6 +65,8 @@ impl Token {
         match self {
             Token::LParen => "LEFT_PAREN",
             Token::RParen => "RIGHT_PAREN",
+            Token::LBrace => "LEFT_BRACE",
+            Token::RBrace => "RIGHT_BRACE",
             Token::Eof => "EOF",
         }
     }
@@ -69,14 +75,15 @@ impl Token {
         match self {
             Token::LParen => "(",
             Token::RParen => ")",
+            Token::LBrace => "{",
+            Token::RBrace => "}",
             Token::Eof => "",
         }
     }
 
     fn literal(&self) -> Cow<'static, str> {
         match self {
-            Token::LParen | Token::RParen | Token::Eof => Cow::Borrowed("null"),
-            _ => todo!(),
+            _ => Cow::Borrowed("null")
         }
     }
 
