@@ -4,15 +4,23 @@ use super::*;
 fn test_parens() {
     use Token as T;
 
-    let mut lexer = Lexer::new("(){},.-+;*");
+    let mut lexer = Lexer::new("=(!)<{>}==,!=.<=->=+;*");
     let expected = [
+        T::Eq,
         T::LParen,
+        T::Bang,
         T::RParen,
+        T::Lt,
         T::LBrace,
+        T::Gt,
         T::RBrace,
+        T::EqEq,
         T::Comma,
+        T::BangEq,
         T::Dot,
+        T::LtEq,
         T::Minus,
+        T::GtEq,
         T::Plus,
         T::Semicolon,
         T::Star,

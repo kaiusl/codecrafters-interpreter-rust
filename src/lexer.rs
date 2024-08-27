@@ -24,6 +24,10 @@ impl<'a> Lexer<'a> {
             eof: false,
         }
     }
+
+    fn next_char_if_eq(&mut self, c: char) -> Option<(usize, char)> {
+        self.chars.next_if(|(_, next)| c == *next)
+    }
 }
 
 impl<'a> Iterator for Lexer<'a> {
@@ -51,6 +55,14 @@ impl<'a> Iterator for Lexer<'a> {
                 '+' => return Some(Ok(Token::Plus)),
                 ';' => return Some(Ok(Token::Semicolon)),
                 '*' => return Some(Ok(Token::Star)),
+                '!' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::BangEq)),
+                '!' => return Some(Ok(Token::Bang)),
+                '=' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::EqEq)),
+                '=' => return Some(Ok(Token::Eq)),
+                '<' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::LtEq)),
+                '<' => return Some(Ok(Token::Lt)),
+                '>' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::GtEq)),
+                '>' => return Some(Ok(Token::Gt)),
                 '\n' => {
                     self.line += 1;
                 }
@@ -76,6 +88,14 @@ pub enum Token {
     Plus,
     Semicolon,
     Star,
+    Eq,
+    EqEq,
+    Bang,
+    BangEq,
+    Lt,
+    LtEq,
+    Gt,
+    GtEq,
     Eof,
 }
 
@@ -92,6 +112,14 @@ impl Token {
             Token::Plus => "PLUS",
             Token::Semicolon => "SEMICOLON",
             Token::Star => "STAR",
+            Token::Eq => "EQUAL",
+            Token::EqEq => "EQUAL_EQUAL",
+            Token::Bang => "BANG",
+            Token::BangEq => "BANG_EQUAL",
+            Token::Lt => "LESS",
+            Token::LtEq => "LESS_EQUAL",
+            Token::Gt => "GREATER",
+            Token::GtEq => "GREATER_EQUAL",
             Token::Eof => "EOF",
         }
     }
@@ -108,6 +136,14 @@ impl Token {
             Token::Plus => "+",
             Token::Semicolon => ";",
             Token::Star => "*",
+            Token::Eq => "=",
+            Token::EqEq => "==",
+            Token::Bang => "!",
+            Token::BangEq => "!=",
+            Token::Lt => "<",
+            Token::LtEq => "<=",
+            Token::Gt => ">",
+            Token::GtEq => ">=",
             Token::Eof => "",
         }
     }
