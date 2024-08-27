@@ -2,12 +2,12 @@
 pub enum LexerError<'a> {
     #[error(transparent)]
     #[diagnostic(transparent)]
-    UnknownToken(UnknownTokenError<'a>),
+    UnknownToken(UnexpectedCharacterError<'a>),
 }
 
 #[derive(Debug, Clone, thiserror::Error, miette::Diagnostic)]
 #[error("[line {line_number}] Error: Unexpected character: {token}")]
-pub struct UnknownTokenError<'a> {
+pub struct UnexpectedCharacterError<'a> {
     #[source_code]
     line: &'a str,
     line_number: usize,
@@ -16,7 +16,7 @@ pub struct UnknownTokenError<'a> {
     span: miette::SourceSpan,
 }
 
-impl<'a> UnknownTokenError<'a> {
+impl<'a> UnexpectedCharacterError<'a> {
     pub fn new(line: &'a str, line_number: usize, token: char, span: miette::SourceSpan) -> Self {
         Self {
             line,

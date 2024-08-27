@@ -55,7 +55,8 @@ impl<'a> Iterator for Lexer<'a> {
                     self.line += 1;
                 }
                 _ => {
-                    let err = UnknownTokenError::new(self.input, self.line, c, (i, 1).into());
+                    let err =
+                        UnexpectedCharacterError::new(self.input, self.line, c, (i, 1).into());
                     return Some(Err(LexerError::UnknownToken(err)));
                 }
             }
