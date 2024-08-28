@@ -63,7 +63,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token, LexerError<'a>>;
+    type Item = Result<Token<'a>, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -105,6 +105,33 @@ impl<'a> Iterator for Lexer<'a> {
                     );
                 }
                 '/' => return Some(Ok(Token::Slash)),
+                '"' => {
+                    let start = i;
+                    let mut end = i;
+                    // TODO: support escape sequences
+                    while let Some((i, c)) = self.chars.next_if_not_eq('"') {
+                        end = i;
+                        if c == '\n' {
+                            self.line += 1;
+                        }
+                    }
+
+                    if self.chars.peek().is_none() {
+                        let err = UnterminatedStringError::new(
+                            self.input,
+                            self.line,
+                            (i..end + 1).into(),
+                        );
+                        return Some(Err(LexerError::UnterminatedString(err)));
+                    }
+
+                    assert!(self.chars.next_if_eq('"').is_some());
+
+                    let lexeme = &self.input[start..=end + 1];
+                    let value = &self.input[start + 1..=end];
+
+                    return Some(Ok(Token::String { lexeme, value }));
+                }
                 '\n' => {
                     self.line += 1;
                 }
@@ -120,7 +147,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token {
+pub enum Token<'a> {
     LParen,
     RParen,
     LBrace,
@@ -140,10 +167,12 @@ pub enum Token {
     LtEq,
     Gt,
     GtEq,
+    // Literals
+    String { lexeme: &'a str, value: &'a str },
     Eof,
 }
 
-impl Token {
+impl<'a> Token<'a> {
     fn book_type_name(&self) -> &'static str {
         match self {
             Token::LParen => "LEFT_PAREN",
@@ -165,11 +194,12 @@ impl Token {
             Token::Gt => "GREATER",
             Token::GtEq => "GREATER_EQUAL",
             Token::Slash => "SLASH",
+            Token::String { .. } => "STRING",
             Token::Eof => "EOF",
         }
     }
 
-    fn lexeme(&self) -> &'static str {
+    fn lexeme(&self) -> &'_ str {
         match self {
             Token::LParen => "(",
             Token::RParen => ")",
@@ -190,12 +220,14 @@ impl Token {
             Token::LtEq => "<=",
             Token::Gt => ">",
             Token::GtEq => ">=",
+            Token::String { lexeme, .. } => lexeme,
             Token::Eof => "",
         }
     }
 
-    fn literal(&self) -> Cow<'static, str> {
+    fn literal(&self) -> Cow<'_, str> {
         match self {
+            Token::String { value, .. } => Cow::Borrowed(value),
             _ => Cow::Borrowed("null"),
         }
     }
@@ -206,7 +238,7 @@ impl Token {
 }
 
 pub struct BookTokenFmt<'a> {
-    token: &'a Token,
+    token: &'a Token<'a>,
 }
 
 impl fmt::Display for BookTokenFmt<'_> {
