@@ -65,7 +65,7 @@ impl<'a> Interpreter<'a> {
         match op {
             UnaryOp::Neg => match right.kind {
                 Object::Number(n) => Ok(ObjectInternal::new(Object::Number(-n), span)),
-                _ => Err(RuntimeError::operand_must_be_a_number(right.span).into()),
+                _ => Err(RuntimeError::operand_must_be_a_number(right.span)),
             },
             UnaryOp::Not => Ok(ObjectInternal::new(Object::Bool(!right.is_truthy()), span)),
         }
@@ -74,8 +74,7 @@ impl<'a> Interpreter<'a> {
     fn eval_binary_expr(expr: BinaryExpr, span: Span) -> Result<ObjectInternal, RuntimeError> {
         let BinaryExpr { left, op, right } = expr;
 
-        let fail_must_be_numbers =
-            || Err(RuntimeError::operands_must_be_numbers(span.clone()).into());
+        let fail_must_be_numbers = || Err(RuntimeError::operands_must_be_numbers(span.clone()));
 
         let left = Self::eval_expr(left)?;
         let right = Self::eval_expr(right)?;
@@ -83,7 +82,7 @@ impl<'a> Interpreter<'a> {
             BinaryOp::Add => match (left.kind, right.kind) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
                 (Object::String(l), Object::String(r)) => Object::String(l + &r),
-                _ => return Err(RuntimeError::operands_must_be_strings_or_numbers(span).into()),
+                _ => return Err(RuntimeError::operands_must_be_strings_or_numbers(span)),
             },
             BinaryOp::Sub => match (left.kind, right.kind) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l - r),
@@ -97,8 +96,8 @@ impl<'a> Interpreter<'a> {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Eq => Object::Bool(left == right),
-            BinaryOp::NotEq => Object::Bool(left != right),
+            BinaryOp::Eq => Object::Bool(left.kind == right.kind),
+            BinaryOp::NotEq => Object::Bool(left.kind != right.kind),
             BinaryOp::Lt => match (left.kind, right.kind) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
                 _ => return fail_must_be_numbers(),

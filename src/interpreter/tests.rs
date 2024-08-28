@@ -37,6 +37,7 @@ fn test_equality_ops() {
     test_eval("1 == 2", Object::Bool(false));
     test_eval("true == true", Object::Bool(true));
     test_eval("\"sf\" == 5", Object::Bool(false));
+    test_eval("\"world\" == \"world\"", Object::Bool(true));
 }
 
 #[rstest]
