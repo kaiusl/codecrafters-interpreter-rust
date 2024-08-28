@@ -291,9 +291,9 @@ impl fmt::Display for Expr {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpr {
-    left: Expr,
-    op: BinaryOp,
-    right: Expr,
+    pub left: Expr,
+    pub op: BinaryOp,
+    pub right: Expr,
 }
 
 impl fmt::Display for BinaryExpr {
@@ -353,8 +353,8 @@ impl fmt::Display for BinaryOp {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpr {
-    op: UnaryOp,
-    right: Expr,
+    pub op: UnaryOp,
+    pub right: Expr,
 }
 
 impl fmt::Display for UnaryExpr {

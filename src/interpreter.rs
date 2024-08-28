@@ -1,6 +1,7 @@
 use std::fmt;
 
-use crate::parser::Expr;
+use crate::lexer::Lexer;
+use crate::parser::{Expr, Parser, ParserError, UnaryExpr, UnaryOp};
 
 #[cfg(test)]
 mod tests;
@@ -11,6 +12,13 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
+    pub fn from_str(s: &str) -> Result<Self, ParserError<'_>> {
+        let lexer = Lexer::new(s);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse()?;
+        Ok(Self { ast })
+    }
+
     pub fn new(ast: Expr) -> Self {
         Self { ast }
     }
@@ -22,7 +30,7 @@ impl Interpreter {
     fn eval_expr(expr: Expr) -> Object {
         match expr {
             Expr::Binary(_) => todo!(),
-            Expr::Unary(_) => todo!(),
+            Expr::Unary(inner) => Self::eval_unary_expr(*inner),
             Expr::Group(inner) => Self::eval_expr(*inner),
             Expr::String(s) => Object::String(s),
             Expr::Number(n) => Object::Number(n),
@@ -30,14 +38,35 @@ impl Interpreter {
             Expr::Nil => Object::Nil,
         }
     }
+
+    fn eval_unary_expr(expr: UnaryExpr) -> Object {
+        let UnaryExpr { op, right } = expr;
+
+        let right = Self::eval_expr(right);
+        match op {
+            UnaryOp::Neg => match right {
+                Object::String(_) => todo!(),
+                Object::Number(n) => Object::Number(-n),
+                Object::Bool(_) => todo!(),
+                Object::Nil => todo!(),
+            },
+            UnaryOp::Not => Object::Bool(!right.is_truthy()),
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     String(String),
     Number(f64),
     Bool(bool),
     Nil,
+}
+
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        !matches!(self, Object::Nil | Object::Bool(false))
+    }
 }
 
 impl fmt::Display for Object {
