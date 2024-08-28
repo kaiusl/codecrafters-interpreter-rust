@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt;
+use std::str::FromStr;
 
 mod error;
 #[cfg(test)]
@@ -181,7 +182,25 @@ impl<'a> Iterator for Lexer<'a> {
 
                     let lexeme = &self.input[start..=end];
 
-                    return Some(Ok(Token::Number { lexeme, value: lexeme.parse().unwrap() }));
+                    return Some(Ok(Token::Number {
+                        lexeme,
+                        value: lexeme.parse().unwrap(),
+                    }));
+                }
+                c if c.is_ascii_alphabetic() || c == '_' => {
+                    let start = i;
+                    let mut end = i;
+                    while let Some((i, _)) = self.chars.next_if(|c| c.is_alphanumeric() || c == '_')
+                    {
+                        end = i;
+                    }
+
+                    let ident = &self.input[start..=end];
+                    if let Ok(kw) = Keyword::from_str(ident) {
+                        return Some(Ok(Token::Keyword(kw)));
+                    } else {
+                        return Some(Ok(Token::Ident(ident)));
+                    }
                 }
                 _ => {
                     let err =
@@ -217,7 +236,29 @@ pub enum Token<'a> {
     // Literals
     String { lexeme: &'a str, value: &'a str },
     Number { lexeme: &'a str, value: f64 },
+    Ident(&'a str),
+    Keyword(Keyword),
     Eof,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Keyword {
+    And,
+    Class,
+    Else,
+    False,
+    For,
+    Fun,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
 }
 
 impl<'a> Token<'a> {
@@ -244,6 +285,8 @@ impl<'a> Token<'a> {
             Token::Slash => "SLASH",
             Token::String { .. } => "STRING",
             Token::Number { .. } => "NUMBER",
+            Token::Ident { .. } => "IDENTIFIER",
+            Token::Keyword(k) => k.book_type_name(),
             Token::Eof => "EOF",
         }
     }
@@ -269,7 +312,10 @@ impl<'a> Token<'a> {
             Token::LtEq => "<=",
             Token::Gt => ">",
             Token::GtEq => ">=",
-            Token::String { lexeme, .. } | Token::Number { lexeme, .. } => lexeme,
+            Token::String { lexeme, .. } | Token::Number { lexeme, .. } | Token::Ident(lexeme) => {
+                lexeme
+            }
+            Token::Keyword(keyword) => keyword.lexeme(),
 
             Token::Eof => "",
         }
@@ -277,14 +323,13 @@ impl<'a> Token<'a> {
 
     fn literal(&self) -> Cow<'_, str> {
         match self {
-            Token::String { value, .. } => Cow::Borrowed(value),
-            Token::Number { lexeme, value, .. } => {
-                if value.fract() == 0.0 {
-                    Cow::Owned(format!("{}.0", value))
-                } else {
-                    Cow::Borrowed(lexeme)
-                }
+            Token::Number { value, .. } if value.fract() == 0.0 => {
+                Cow::Owned(format!("{}.0", value))
             }
+            Token::String { value, .. }
+            | Token::Number { lexeme: value, .. }
+            | Token::Ident(value) => Cow::Borrowed(value),
+
             _ => Cow::Borrowed("null"),
         }
     }
@@ -294,9 +339,73 @@ impl<'a> Token<'a> {
     }
 }
 
-#[test]
-fn t() {
-    println!("{}", 1.0);
+impl Keyword {
+    pub fn book_type_name(&self) -> &'static str {
+        match self {
+            Keyword::And => "AND",
+            Keyword::Class => "CLASS",
+            Keyword::Else => "ELSE",
+            Keyword::False => "FALSE",
+            Keyword::For => "FOR",
+            Keyword::Fun => "FUN",
+            Keyword::If => "IF",
+            Keyword::Nil => "NIL",
+            Keyword::Or => "OR",
+            Keyword::Print => "PRINT",
+            Keyword::Return => "RETURN",
+            Keyword::Super => "SUPER",
+            Keyword::This => "THIS",
+            Keyword::True => "TRUE",
+            Keyword::Var => "VAR",
+            Keyword::While => "WHILE",
+        }
+    }
+
+    pub fn lexeme(&self) -> &'static str {
+        match self {
+            Keyword::And => "and",
+            Keyword::Class => "class",
+            Keyword::Else => "else",
+            Keyword::False => "false",
+            Keyword::For => "for",
+            Keyword::Fun => "fun",
+            Keyword::If => "if",
+            Keyword::Nil => "nil",
+            Keyword::Or => "or",
+            Keyword::Print => "print",
+            Keyword::Return => "return",
+            Keyword::Super => "super",
+            Keyword::This => "this",
+            Keyword::True => "true",
+            Keyword::Var => "var",
+            Keyword::While => "while",
+        }
+    }
+}
+
+impl FromStr for Keyword {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "and" => Ok(Keyword::And),
+            "class" => Ok(Keyword::Class),
+            "else" => Ok(Keyword::Else),
+            "false" => Ok(Keyword::False),
+            "for" => Ok(Keyword::For),
+            "fun" => Ok(Keyword::Fun),
+            "if" => Ok(Keyword::If),
+            "nil" => Ok(Keyword::Nil),
+            "or" => Ok(Keyword::Or),
+            "print" => Ok(Keyword::Print),
+            "return" => Ok(Keyword::Return),
+            "super" => Ok(Keyword::Super),
+            "this" => Ok(Keyword::This),
+            "true" => Ok(Keyword::True),
+            "var" => Ok(Keyword::Var),
+            "while" => Ok(Keyword::While),
+            _ => Err(()),
+        }
+    }
 }
 
 pub struct BookTokenFmt<'a> {

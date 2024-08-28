@@ -140,6 +140,42 @@ fn test_numbers() {
 }
 
 #[test]
+fn test_identifiers() {
+    use Token as T;
+
+    let mut lexer = Lexer::new("hello hellow_worl12d _hello_");
+    let expected = [T::Ident("hello"), T::Ident("hellow_worl12d"), T::Ident("_hello_")];
+    check_tokens(&mut lexer, &expected);
+}
+
+#[test]
+fn test_keywords() {
+    use Token as T;
+
+    let mut lexer = Lexer::new("and class else false for fun if nil or print return super this true var while");
+    let expected = [
+        T::Keyword(Keyword::And),
+        T::Keyword(Keyword::Class),
+        T::Keyword(Keyword::Else),
+        T::Keyword(Keyword::False),
+        T::Keyword(Keyword::For),
+        T::Keyword(Keyword::Fun),
+        T::Keyword(Keyword::If),
+        T::Keyword(Keyword::Nil),
+        T::Keyword(Keyword::Or),
+        T::Keyword(Keyword::Print),
+        T::Keyword(Keyword::Return),
+        T::Keyword(Keyword::Super),
+        T::Keyword(Keyword::This),
+        T::Keyword(Keyword::True),
+        T::Keyword(Keyword::Var),
+        T::Keyword(Keyword::While),
+    ];
+    check_tokens(&mut lexer, &expected);
+}
+
+
+#[test]
 fn test_simple_errors() {
     use Token as T;
 
