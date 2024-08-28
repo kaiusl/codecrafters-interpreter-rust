@@ -16,4 +16,5 @@ fn test_primary() {
     test("false", Expr::Bool(false));
     test("nil", Expr::Nil);
     test("\"hello\"", Expr::String("hello".to_string()));
+    test("(12)", Expr::Group(Box::new(Expr::Number(12.0))));
 }
