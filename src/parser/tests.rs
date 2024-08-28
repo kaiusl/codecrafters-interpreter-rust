@@ -18,3 +18,22 @@ fn test_primary() {
     test("\"hello\"", Expr::String("hello".to_string()));
     test("(12)", Expr::Group(Box::new(Expr::Number(12.0))));
 }
+
+#[test]
+fn test_unary() {
+    test(
+        "!true",
+        Expr::Unary(Box::new(UnaryExpr {
+            op: UnaryOp::Not,
+            right: Expr::Bool(true),
+        })),
+    );
+
+    test(
+        "-1",
+        Expr::Unary(Box::new(UnaryExpr {
+            op: UnaryOp::Neg,
+            right: Expr::Number(1.0),
+        })),
+    );
+}
