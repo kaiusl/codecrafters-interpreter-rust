@@ -8,9 +8,45 @@ mod tests;
 pub use error::*;
 
 #[derive(Debug, Clone)]
+pub struct Chars<'a> {
+    inner: std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>,
+}
+
+impl<'a> Chars<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Chars {
+            inner: input.chars().enumerate().peekable(),
+        }
+    }
+
+    #[inline]
+    fn next_if_eq(&mut self, c: char) -> Option<(usize, char)> {
+        self.inner.next_if(|(_, next)| c == *next)
+    }
+
+    #[inline]
+    fn next_if_not_eq(&mut self, c: char) -> Option<(usize, char)> {
+        self.inner.next_if(|(_, next)| c != *next)
+    }
+
+    #[inline]
+    fn peek(&mut self) -> Option<&(usize, char)> {
+        self.inner.peek()
+    }
+}
+
+impl<'a> Iterator for Chars<'a> {
+    type Item = (usize, char);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Lexer<'a> {
     input: &'a str,
-    chars: std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>,
+    chars: Chars<'a>,
     line: usize,
     eof: bool,
 }
@@ -19,14 +55,10 @@ impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
         Lexer {
             input,
-            chars: input.chars().enumerate().peekable(),
+            chars: Chars::new(input),
             line: 1,
             eof: false,
         }
-    }
-
-    fn next_char_if_eq(&mut self, c: char) -> Option<(usize, char)> {
-        self.chars.next_if(|(_, next)| c == *next)
     }
 }
 
@@ -55,17 +87,28 @@ impl<'a> Iterator for Lexer<'a> {
                 '+' => return Some(Ok(Token::Plus)),
                 ';' => return Some(Ok(Token::Semicolon)),
                 '*' => return Some(Ok(Token::Star)),
-                '!' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::BangEq)),
+                '!' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::BangEq)),
                 '!' => return Some(Ok(Token::Bang)),
-                '=' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::EqEq)),
+                '=' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::EqEq)),
                 '=' => return Some(Ok(Token::Eq)),
-                '<' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::LtEq)),
+                '<' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::LtEq)),
                 '<' => return Some(Ok(Token::Lt)),
-                '>' if self.next_char_if_eq('=').is_some() => return Some(Ok(Token::GtEq)),
+                '>' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::GtEq)),
                 '>' => return Some(Ok(Token::Gt)),
+                '/' if self.chars.next_if_eq('/').is_some() => {
+                    // comment, ignore until end of line
+                    while let Some((_, _)) = self.chars.next_if_not_eq('\n') {}
+                    // Next character should be 'newline' or we reached the end of input
+                    assert!(
+                        self.chars.peek().map(|(_, c)| c) == Some(&'\n')
+                            || self.chars.peek().is_none()
+                    );
+                }
+                '/' => return Some(Ok(Token::Slash)),
                 '\n' => {
                     self.line += 1;
                 }
+                ' ' | '\r' | '\t' => {}
                 _ => {
                     let err =
                         UnexpectedCharacterError::new(self.input, self.line, c, (i, 1).into());
@@ -88,6 +131,7 @@ pub enum Token {
     Plus,
     Semicolon,
     Star,
+    Slash,
     Eq,
     EqEq,
     Bang,
@@ -120,6 +164,7 @@ impl Token {
             Token::LtEq => "LESS_EQUAL",
             Token::Gt => "GREATER",
             Token::GtEq => "GREATER_EQUAL",
+            Token::Slash => "SLASH",
             Token::Eof => "EOF",
         }
     }
@@ -136,6 +181,7 @@ impl Token {
             Token::Plus => "+",
             Token::Semicolon => ";",
             Token::Star => "*",
+            Token::Slash => "/",
             Token::Eq => "=",
             Token::EqEq => "==",
             Token::Bang => "!",
