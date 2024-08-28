@@ -37,3 +37,85 @@ fn test_unary() {
         })),
     );
 }
+
+#[test]
+fn test_binary_simple() {
+    test(
+        "1 + 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Add,
+            right: Expr::Number(2.0),
+        })),
+    );
+
+    test(
+        "1 - 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Sub,
+            right: Expr::Number(2.0),
+        })),
+    );
+
+    test(
+        "1 * 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Mul,
+            right: Expr::Number(2.0),
+        })),
+    );
+
+    test(
+        "1 / 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Div,
+            right: Expr::Number(2.0),
+        })),
+    );
+
+    test(
+        "1 == 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Eq,
+            right: Expr::Number(2.0),
+        })),
+    );
+
+    test(
+        "1 != 2",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::NotEq,
+            right: Expr::Number(2.0),
+        })),
+    );
+}
+
+#[test]
+fn test_binary_complex() {
+    let inner = Expr::Binary(Box::new(BinaryExpr {
+        left: Expr::Number(3.0),
+        op: BinaryOp::Add,
+        right: Expr::Number(5.0),
+    }));
+    let group = Expr::Group(Box::new(inner));
+
+    let mul = Expr::Binary(Box::new(BinaryExpr {
+        left: Expr::Number(2.0),
+        op: BinaryOp::Mul,
+        right: group,
+    }));
+
+    test(
+        "1 + 2 * (3 + 5)",
+        Expr::Binary(Box::new(BinaryExpr {
+            left: Expr::Number(1.0),
+            op: BinaryOp::Add,
+            right: mul,
+        })),
+    )
+}
