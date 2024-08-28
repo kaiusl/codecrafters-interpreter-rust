@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::lexer::Lexer;
-use crate::parser::{Expr, Parser, ParserError, UnaryExpr, UnaryOp};
+use crate::parser::{BinaryExpr, BinaryOp, Expr, Parser, ParserError, UnaryExpr, UnaryOp};
 
 #[cfg(test)]
 mod tests;
@@ -29,7 +29,7 @@ impl Interpreter {
 
     fn eval_expr(expr: Expr) -> Object {
         match expr {
-            Expr::Binary(_) => todo!(),
+            Expr::Binary(inner) => Self::eval_binary_expr(*inner),
             Expr::Unary(inner) => Self::eval_unary_expr(*inner),
             Expr::Group(inner) => Self::eval_expr(*inner),
             Expr::String(s) => Object::String(s),
@@ -51,6 +51,38 @@ impl Interpreter {
                 Object::Nil => todo!(),
             },
             UnaryOp::Not => Object::Bool(!right.is_truthy()),
+        }
+    }
+
+    fn eval_binary_expr(expr: BinaryExpr) -> Object {
+        let BinaryExpr { left, op, right } = expr;
+
+        let left = Self::eval_expr(left);
+        let right = Self::eval_expr(right);
+        match op {
+            BinaryOp::Add => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
+                (Object::String(l), Object::String(r)) => Object::String(l + &r),
+                _ => todo!(),
+            },
+            BinaryOp::Sub => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Number(l - r),
+                _ => todo!(),
+            },
+            BinaryOp::Mul => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Number(l * r),
+                _ => todo!(),
+            },
+            BinaryOp::Div => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
+                _ => todo!(),
+            },
+            BinaryOp::Eq => todo!(),
+            BinaryOp::NotEq => todo!(),
+            BinaryOp::Lt => todo!(),
+            BinaryOp::Gt => todo!(),
+            BinaryOp::LtEq => todo!(),
+            BinaryOp::GtEq => todo!(),
         }
     }
 }
