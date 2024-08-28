@@ -66,16 +66,16 @@ fn main() {
                 eprintln!("Failed to read file {}", filename);
                 String::new()
             });
-            let lexer = Lexer::new(&file_contents);
-            let mut parser = parser::Parser::new(lexer);
-            let ast = parser.parse();
-            match ast {
-                Ok(ast) => {
-                    let interpreter = interpreter::Interpreter::new(ast);
-                    let result = interpreter.eval();
-                    println!("{}", result);
+
+            match interpreter::eval(&file_contents) {
+                Ok(Ok(result)) => println!("{}", result),
+                Ok(Err(err)) => {
+                    // runtime error
+                    eprintln!("{}", err);
+                    std::process::exit(70);
                 }
                 Err(err) => {
+                    // lexer/parser error
                     eprintln!("{}", err);
                     std::process::exit(65);
                 }

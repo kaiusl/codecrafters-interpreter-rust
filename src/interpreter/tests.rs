@@ -1,61 +1,49 @@
+use rstest::rstest;
+
 use super::*;
+
+fn test_eval(input: &str, expected: Object) {
+    let result = super::eval(input).unwrap().unwrap();
+    assert_eq!(result, expected);
+}
 
 #[test]
 fn test_unary_op() {
-    let interpreter = Interpreter::from_str("-1").unwrap();
-    assert_eq!(Object::Number(-1.0), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("!(true)").unwrap();
-    assert_eq!(Object::Bool(false), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("!nil").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("!1.5").unwrap();
-    assert_eq!(Object::Bool(false), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("!!\"asf\"").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
+    test_eval("-1", Object::Number(-1.0));
+    test_eval("!(true)", Object::Bool(false));
+    test_eval("!(nil)", Object::Bool(true));
+    test_eval("!(1.5)", Object::Bool(false));
+    test_eval("!!\"asf\"", Object::Bool(true));
 }
 
 #[test]
 fn test_arithmetic_ops() {
-    let interpreter = Interpreter::from_str("1 + 2").unwrap();
-    assert_eq!(Object::Number(3.0), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("18*3/(3*6)").unwrap();
-    assert_eq!(Object::Number(3.0), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("23 + 28 - (-(61 - 99))").unwrap();
-    assert_eq!(Object::Number(13.0), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("\"1\" + \"2\"").unwrap();
-    assert_eq!(Object::String("12".to_string()), interpreter.eval());
+    test_eval("1 + 2", Object::Number(3.0));
+    test_eval("1 - 2", Object::Number(-1.0));
+    test_eval("23 + 28 - (-(61 - 99))", Object::Number(13.0));
+    test_eval("\"1\" + \"2\"", Object::String("12".to_string()));
 }
 
 #[test]
 fn test_relational_ops() {
-    let interpreter = Interpreter::from_str("1 < 2").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("1 > 2").unwrap();
-    assert_eq!(Object::Bool(false), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("(1+6) <= (2*6)").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
+    test_eval("1 < 2", Object::Bool(true));
+    test_eval("1 > 2", Object::Bool(false));
+    test_eval("(1+6) <= (2*6)", Object::Bool(true));
 }
 
 #[test]
 fn test_equality_ops() {
-    let interpreter = Interpreter::from_str("1 == 1").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
+    test_eval("1 == 1", Object::Bool(true));
+    test_eval("1 == 2", Object::Bool(false));
+    test_eval("true == true", Object::Bool(true));
+    test_eval("\"sf\" == 5", Object::Bool(false));
+}
 
-    let interpreter = Interpreter::from_str("1 == 2").unwrap();
-    assert_eq!(Object::Bool(false), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("true == true").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
-
-    let interpreter = Interpreter::from_str("\"sf\" != 5").unwrap();
-    assert_eq!(Object::Bool(true), interpreter.eval());
+#[rstest]
+#[should_panic(expected = "Operand must be a number")]
+#[case("-\"fsa\"")]
+#[should_panic(expected = "Operand must be a number")]
+#[case("-true")]
+fn test_unary_errors(#[case] input: &str) {
+    super::eval(input).unwrap().unwrap();
 }

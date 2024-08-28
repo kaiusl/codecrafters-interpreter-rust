@@ -2,64 +2,77 @@ use std::fmt;
 
 use crate::lexer::Lexer;
 use crate::parser::{BinaryExpr, BinaryOp, Expr, Parser, ParserError, UnaryExpr, UnaryOp};
+use miette::Result;
 
+use self::error::RuntimeError;
+
+mod error;
 #[cfg(test)]
 mod tests;
 
-#[derive(Debug, Clone)]
-pub struct Interpreter {
-    ast: Expr,
+pub fn eval(s: &str) -> Result<Result<Object>, ParserError<'_>> {
+    Ok(Interpreter::from_str(s)?.eval())
 }
 
-impl Interpreter {
-    pub fn from_str(s: &str) -> Result<Self, ParserError<'_>> {
+#[derive(Debug, Clone)]
+struct Interpreter<'a> {
+    ast: Option<Expr>,
+    input: &'a str,
+}
+
+impl<'a> Interpreter<'a> {
+    pub fn from_str(s: &'a str) -> Result<Self, ParserError<'_>> {
         let lexer = Lexer::new(s);
         let mut parser = Parser::new(lexer);
         let ast = parser.parse()?;
-        Ok(Self { ast })
+        Ok(Self {
+            ast: Some(ast),
+            input: s,
+        })
     }
 
-    pub fn new(ast: Expr) -> Self {
-        Self { ast }
+    pub fn new(ast: Expr, input: &'a str) -> Self {
+        Self {
+            ast: Some(ast),
+            input,
+        }
     }
 
-    pub fn eval(self) -> Object {
-        Self::eval_expr(self.ast)
+    pub fn eval(&mut self) -> Result<Object> {
+        Self::eval_expr(self.ast.take().unwrap())
     }
 
-    fn eval_expr(expr: Expr) -> Object {
+    fn eval_expr(expr: Expr) -> Result<Object> {
         match expr {
             Expr::Binary(inner) => Self::eval_binary_expr(*inner),
             Expr::Unary(inner) => Self::eval_unary_expr(*inner),
             Expr::Group(inner) => Self::eval_expr(*inner),
-            Expr::String(s) => Object::String(s),
-            Expr::Number(n) => Object::Number(n),
-            Expr::Bool(b) => Object::Bool(b),
-            Expr::Nil => Object::Nil,
+            Expr::String(s) => Ok(Object::String(s)),
+            Expr::Number(n) => Ok(Object::Number(n)),
+            Expr::Bool(b) => Ok(Object::Bool(b)),
+            Expr::Nil => Ok(Object::Nil),
         }
     }
 
-    fn eval_unary_expr(expr: UnaryExpr) -> Object {
+    fn eval_unary_expr(expr: UnaryExpr) -> Result<Object> {
         let UnaryExpr { op, right } = expr;
 
-        let right = Self::eval_expr(right);
+        let right = Self::eval_expr(right)?;
         match op {
             UnaryOp::Neg => match right {
-                Object::String(_) => todo!(),
-                Object::Number(n) => Object::Number(-n),
-                Object::Bool(_) => todo!(),
-                Object::Nil => todo!(),
+                Object::Number(n) => Ok(Object::Number(-n)),
+                _ => Err(RuntimeError::new("Operand must be a number").into()),
             },
-            UnaryOp::Not => Object::Bool(!right.is_truthy()),
+            UnaryOp::Not => Ok(Object::Bool(!right.is_truthy())),
         }
     }
 
-    fn eval_binary_expr(expr: BinaryExpr) -> Object {
+    fn eval_binary_expr(expr: BinaryExpr) -> Result<Object> {
         let BinaryExpr { left, op, right } = expr;
 
-        let left = Self::eval_expr(left);
-        let right = Self::eval_expr(right);
-        match op {
+        let left = Self::eval_expr(left)?;
+        let right = Self::eval_expr(right)?;
+        Ok(match op {
             BinaryOp::Add => match (left, right) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
                 (Object::String(l), Object::String(r)) => Object::String(l + &r),
@@ -79,31 +92,23 @@ impl Interpreter {
             },
             BinaryOp::Eq => Object::Bool(left == right),
             BinaryOp::NotEq => Object::Bool(left != right),
-            BinaryOp::Lt => {
-                match (left, right) {
-                    (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
-                    _ => todo!(),
-                }
+            BinaryOp::Lt => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
+                _ => todo!(),
             },
-            BinaryOp::Gt => {
-                match (left, right) {
-                    (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
-                    _ => todo!(),
-                }
+            BinaryOp::Gt => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
+                _ => todo!(),
             },
-            BinaryOp::LtEq => {
-                match (left, right) {
-                    (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
-                    _ => todo!(),
-                }
+            BinaryOp::LtEq => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
+                _ => todo!(),
             },
-            BinaryOp::GtEq => {
-                match (left, right) {
-                    (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
-                    _ => todo!(),
-                }
+            BinaryOp::GtEq => match (left, right) {
+                (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
+                _ => todo!(),
             },
-        }
+        })
     }
 }
 
