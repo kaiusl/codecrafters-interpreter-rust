@@ -145,6 +145,13 @@ fn test_numbers() {
         value: 123.456,
     }];
     check_tokens(&mut lexer, &expected);
+
+    let mut lexer = Lexer::new("123.400");
+    let expected = [T::Number {
+        lexeme: "123.400",
+        value: 123.4,
+    }];
+    check_tokens(&mut lexer, &expected);
 }
 
 #[test]
