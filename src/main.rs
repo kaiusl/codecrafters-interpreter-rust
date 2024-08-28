@@ -1,9 +1,12 @@
+#![deny(rust_2018_idioms)]
+
 use std::env;
 use std::fs;
 
-use self::lexer::Lexer;
-
 mod lexer;
+mod parser;
+
+use self::lexer::Lexer;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -40,6 +43,16 @@ fn main() {
             if had_lexical_errors {
                 std::process::exit(65);
             }
+        }
+        "parse" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
+            let lexer = Lexer::new(&file_contents);
+            let mut parser = parser::Parser::new(lexer);
+            let ast = parser.parse().unwrap();
+            println!("{}", ast);
         }
         _ => {
             eprintln!("Unknown command: {}", command)

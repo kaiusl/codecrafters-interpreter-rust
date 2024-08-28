@@ -6,7 +6,7 @@ enum LexerTestErr {
     UnknownCharacter(char),
 }
 
-fn check_tokens<'a>(lexer: &mut Lexer<'a>, expected: &[Token]) {
+fn check_tokens(lexer: &mut Lexer<'_>, expected: &[Token<'_>]) {
     let mut count = 0;
 
     for (t, expected) in lexer.zip(expected) {
@@ -18,7 +18,7 @@ fn check_tokens<'a>(lexer: &mut Lexer<'a>, expected: &[Token]) {
     assert!(lexer.next().is_none());
 }
 
-fn check_tokens_with_errors<'a>(lexer: &mut Lexer<'a>, expected: &[Result<Token, LexerTestErr>]) {
+fn check_tokens_with_errors(lexer: &mut Lexer<'_>, expected: &[Result<Token<'_>, LexerTestErr>]) {
     let mut count = 0;
 
     for t in lexer.zip(expected) {
@@ -126,17 +126,25 @@ fn test_numbers() {
     use Token as T;
 
     let mut lexer = Lexer::new("123");
-    let expected = [T::Number { lexeme: "123", value: 123.0 }];
+    let expected = [T::Number {
+        lexeme: "123",
+        value: 123.0,
+    }];
     check_tokens(&mut lexer, &expected);
 
     let mut lexer = Lexer::new("123.0");
-    let expected = [T::Number { lexeme: "123.0", value: 123.0 }];
+    let expected = [T::Number {
+        lexeme: "123.0",
+        value: 123.0,
+    }];
     check_tokens(&mut lexer, &expected);
 
     let mut lexer = Lexer::new("123.456");
-    let expected = [T::Number { lexeme: "123.456", value: 123.456 }];
+    let expected = [T::Number {
+        lexeme: "123.456",
+        value: 123.456,
+    }];
     check_tokens(&mut lexer, &expected);
-
 }
 
 #[test]
@@ -144,7 +152,11 @@ fn test_identifiers() {
     use Token as T;
 
     let mut lexer = Lexer::new("hello hellow_worl12d _hello_");
-    let expected = [T::Ident("hello"), T::Ident("hellow_worl12d"), T::Ident("_hello_")];
+    let expected = [
+        T::Ident("hello"),
+        T::Ident("hellow_worl12d"),
+        T::Ident("_hello_"),
+    ];
     check_tokens(&mut lexer, &expected);
 }
 
@@ -152,7 +164,8 @@ fn test_identifiers() {
 fn test_keywords() {
     use Token as T;
 
-    let mut lexer = Lexer::new("and class else false for fun if nil or print return super this true var while");
+    let mut lexer =
+        Lexer::new("and class else false for fun if nil or print return super this true var while");
     let expected = [
         T::Keyword(Keyword::And),
         T::Keyword(Keyword::Class),
@@ -173,7 +186,6 @@ fn test_keywords() {
     ];
     check_tokens(&mut lexer, &expected);
 }
-
 
 #[test]
 fn test_simple_errors() {
