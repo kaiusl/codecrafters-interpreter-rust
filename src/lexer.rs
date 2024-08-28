@@ -9,12 +9,14 @@ pub use error::*;
 
 #[derive(Debug, Clone)]
 pub struct Chars<'a> {
+    input: &'a str,
     inner: std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>,
 }
 
 impl<'a> Chars<'a> {
     pub fn new(input: &'a str) -> Self {
         Chars {
+            input,
             inner: input.chars().enumerate().peekable(),
         }
     }
@@ -32,6 +34,19 @@ impl<'a> Chars<'a> {
     #[inline]
     fn peek(&mut self) -> Option<&(usize, char)> {
         self.inner.peek()
+    }
+
+    #[inline]
+    fn peek_if_eq(&mut self, c: char) -> Option<&(usize, char)> {
+        self.inner.peek().filter(|(_, next)| c == *next)
+    }
+
+    #[inline]
+    fn next_if<F>(&mut self, f: F) -> Option<(usize, char)>
+    where
+        F: Fn(char) -> bool,
+    {
+        self.inner.next_if(|(_, next)| f(*next))
     }
 }
 
@@ -136,6 +151,38 @@ impl<'a> Iterator for Lexer<'a> {
                     self.line += 1;
                 }
                 ' ' | '\r' | '\t' => {}
+                c if c.is_ascii_digit() => {
+                    let start = i;
+                    let mut end = i;
+                    while let Some((i, _)) = self.chars.next_if(|c| c.is_ascii_digit()) {
+                        end = i;
+                    }
+
+                    'decimal: {
+                        let Some((i, _)) = self.chars.peek_if_eq('.') else {
+                            break 'decimal;
+                        };
+
+                        let Some(c) = self.input.get(*i + 1..).and_then(|s| s.chars().next())
+                        else {
+                            break 'decimal;
+                        };
+
+                        if !c.is_ascii_digit() {
+                            break 'decimal;
+                        }
+
+                        // floating point
+                        self.chars.next(); // consume .
+                        while let Some((i, _)) = self.chars.next_if(|c| c.is_ascii_digit()) {
+                            end = i;
+                        }
+                    }
+
+                    let lexeme = &self.input[start..=end];
+
+                    return Some(Ok(Token::Number { lexeme, value: lexeme.parse().unwrap() }));
+                }
                 _ => {
                     let err =
                         UnexpectedCharacterError::new(self.input, self.line, c, (i, 1).into());
@@ -146,7 +193,7 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
     LParen,
     RParen,
@@ -169,6 +216,7 @@ pub enum Token<'a> {
     GtEq,
     // Literals
     String { lexeme: &'a str, value: &'a str },
+    Number { lexeme: &'a str, value: f64 },
     Eof,
 }
 
@@ -195,6 +243,7 @@ impl<'a> Token<'a> {
             Token::GtEq => "GREATER_EQUAL",
             Token::Slash => "SLASH",
             Token::String { .. } => "STRING",
+            Token::Number { .. } => "NUMBER",
             Token::Eof => "EOF",
         }
     }
@@ -220,7 +269,8 @@ impl<'a> Token<'a> {
             Token::LtEq => "<=",
             Token::Gt => ">",
             Token::GtEq => ">=",
-            Token::String { lexeme, .. } => lexeme,
+            Token::String { lexeme, .. } | Token::Number { lexeme, .. } => lexeme,
+
             Token::Eof => "",
         }
     }
@@ -228,6 +278,13 @@ impl<'a> Token<'a> {
     fn literal(&self) -> Cow<'_, str> {
         match self {
             Token::String { value, .. } => Cow::Borrowed(value),
+            Token::Number { lexeme, value, .. } => {
+                if value.fract() == 0.0 {
+                    Cow::Owned(format!("{}.0", value))
+                } else {
+                    Cow::Borrowed(lexeme)
+                }
+            }
             _ => Cow::Borrowed("null"),
         }
     }
@@ -235,6 +292,11 @@ impl<'a> Token<'a> {
     pub fn fmt_as_book(&self) -> BookTokenFmt<'_> {
         BookTokenFmt { token: self }
     }
+}
+
+#[test]
+fn t() {
+    println!("{}", 1.0);
 }
 
 pub struct BookTokenFmt<'a> {

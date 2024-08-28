@@ -122,6 +122,24 @@ fn test_strings() {
 }
 
 #[test]
+fn test_numbers() {
+    use Token as T;
+
+    let mut lexer = Lexer::new("123");
+    let expected = [T::Number { lexeme: "123", value: 123.0 }];
+    check_tokens(&mut lexer, &expected);
+
+    let mut lexer = Lexer::new("123.0");
+    let expected = [T::Number { lexeme: "123.0", value: 123.0 }];
+    check_tokens(&mut lexer, &expected);
+
+    let mut lexer = Lexer::new("123.456");
+    let expected = [T::Number { lexeme: "123.456", value: 123.456 }];
+    check_tokens(&mut lexer, &expected);
+
+}
+
+#[test]
 fn test_simple_errors() {
     use Token as T;
 
