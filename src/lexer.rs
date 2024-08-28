@@ -76,10 +76,20 @@ impl<'a> Lexer<'a> {
             eof: false,
         }
     }
+
+    pub fn input(&self) -> &'a str {
+        self.input
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenMeta {
+    pub line: usize,
+    pub start: usize,
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<Token<'a>, LexerError<'a>>;
+    type Item = Result<(Token<'a>, TokenMeta), LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -88,29 +98,34 @@ impl<'a> Iterator for Lexer<'a> {
                     return None;
                 } else {
                     self.eof = true;
-                    return Some(Ok(Token::Eof));
+                    let meta = TokenMeta {
+                        line: self.line,
+                        start: self.input.len(),
+                    };
+                    return Some(Ok((Token::Eof, meta)));
                 }
             };
 
-            match c {
-                '(' => return Some(Ok(Token::LParen)),
-                ')' => return Some(Ok(Token::RParen)),
-                '{' => return Some(Ok(Token::LBrace)),
-                '}' => return Some(Ok(Token::RBrace)),
-                ',' => return Some(Ok(Token::Comma)),
-                '.' => return Some(Ok(Token::Dot)),
-                '-' => return Some(Ok(Token::Minus)),
-                '+' => return Some(Ok(Token::Plus)),
-                ';' => return Some(Ok(Token::Semicolon)),
-                '*' => return Some(Ok(Token::Star)),
-                '!' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::BangEq)),
-                '!' => return Some(Ok(Token::Bang)),
-                '=' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::EqEq)),
-                '=' => return Some(Ok(Token::Eq)),
-                '<' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::LtEq)),
-                '<' => return Some(Ok(Token::Lt)),
-                '>' if self.chars.next_if_eq('=').is_some() => return Some(Ok(Token::GtEq)),
-                '>' => return Some(Ok(Token::Gt)),
+            let start = i;
+            let token = match c {
+                '(' => Token::LParen,
+                ')' => Token::RParen,
+                '{' => Token::LBrace,
+                '}' => Token::RBrace,
+                ',' => Token::Comma,
+                '.' => Token::Dot,
+                '-' => Token::Minus,
+                '+' => Token::Plus,
+                ';' => Token::Semicolon,
+                '*' => Token::Star,
+                '!' if self.chars.next_if_eq('=').is_some() => Token::BangEq,
+                '!' => Token::Bang,
+                '=' if self.chars.next_if_eq('=').is_some() => Token::EqEq,
+                '=' => Token::Eq,
+                '<' if self.chars.next_if_eq('=').is_some() => Token::LtEq,
+                '<' => Token::Lt,
+                '>' if self.chars.next_if_eq('=').is_some() => Token::GtEq,
+                '>' => Token::Gt,
                 '/' if self.chars.next_if_eq('/').is_some() => {
                     // comment, ignore until end of line
                     while let Some((_, _)) = self.chars.next_if_not_eq('\n') {}
@@ -119,8 +134,10 @@ impl<'a> Iterator for Lexer<'a> {
                         self.chars.peek().map(|(_, c)| c) == Some(&'\n')
                             || self.chars.peek().is_none()
                     );
+
+                    continue;
                 }
-                '/' => return Some(Ok(Token::Slash)),
+                '/' => Token::Slash,
                 '"' => {
                     let start = i;
                     let mut end = i;
@@ -146,12 +163,13 @@ impl<'a> Iterator for Lexer<'a> {
                     let lexeme = &self.input[start..=end + 1];
                     let value = &self.input[start + 1..=end];
 
-                    return Some(Ok(Token::String { lexeme, value }));
+                    Token::String { lexeme, value }
                 }
                 '\n' => {
                     self.line += 1;
+                    continue;
                 }
-                ' ' | '\r' | '\t' => {}
+                ' ' | '\r' | '\t' => continue,
                 c if c.is_ascii_digit() => {
                     let start = i;
                     let mut end = i;
@@ -182,10 +200,10 @@ impl<'a> Iterator for Lexer<'a> {
 
                     let lexeme = &self.input[start..=end];
 
-                    return Some(Ok(Token::Number {
+                    Token::Number {
                         lexeme,
                         value: lexeme.parse().unwrap(),
-                    }));
+                    }
                 }
                 c if c.is_ascii_alphabetic() || c == '_' => {
                     let start = i;
@@ -197,9 +215,9 @@ impl<'a> Iterator for Lexer<'a> {
 
                     let ident = &self.input[start..=end];
                     if let Ok(kw) = Keyword::from_str(ident) {
-                        return Some(Ok(Token::Keyword(kw)));
+                        Token::Keyword(kw)
                     } else {
-                        return Some(Ok(Token::Ident(ident)));
+                        Token::Ident(ident)
                     }
                 }
                 _ => {
@@ -207,7 +225,14 @@ impl<'a> Iterator for Lexer<'a> {
                         UnexpectedCharacterError::new(self.input, self.line, c, (i, 1).into());
                     return Some(Err(LexerError::UnknownToken(err)));
                 }
-            }
+            };
+
+            let meta = TokenMeta {
+                line: self.line,
+                start,
+            };
+
+            return Some(Ok((token, meta)));
         }
     }
 }
@@ -291,7 +316,7 @@ impl<'a> Token<'a> {
         }
     }
 
-    fn lexeme(&self) -> &'_ str {
+    pub fn lexeme(&self) -> &'_ str {
         match self {
             Token::LParen => "(",
             Token::RParen => ")",

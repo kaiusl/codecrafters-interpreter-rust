@@ -1,3 +1,5 @@
+use core::panic;
+
 use super::*;
 
 fn test(input: &str, expected: Expr) {
@@ -97,18 +99,43 @@ fn test_binary_simple() {
 
 #[test]
 fn test_binary_complex() {
-    let lexer = Lexer::new("1 + 2 * (3 + 5)",);
+    let lexer = Lexer::new("1 + 2 * (3 + 5)");
     let mut parser = Parser::new(lexer);
     let ast = parser.parse().unwrap();
     assert_eq!("(+ 1.0 (* 2.0 (group (+ 3.0 5.0))))", format!("{}", ast));
-    insta::assert_debug_snapshot!(ast);    
+    insta::assert_debug_snapshot!(ast);
 }
 
 #[test]
 fn test_mix() {
-    let lexer = Lexer::new("1 + !true * (!!3 + -5)",);
+    let lexer = Lexer::new("1 + !true * (!!3 + -5)");
     let mut parser = Parser::new(lexer);
     let ast = parser.parse().unwrap();
-    assert_eq!("(+ 1.0 (* (! true) (group (+ (! (! 3.0)) (- 5.0)))))", format!("{}", ast));
-    insta::assert_debug_snapshot!(ast);    
+    assert_eq!(
+        "(+ 1.0 (* (! true) (group (+ (! (! 3.0)) (- 5.0)))))",
+        format!("{}", ast)
+    );
+    insta::assert_debug_snapshot!(ast);
+}
+
+#[test]
+fn test_errors() {
+    let lexer = Lexer::new("(3 + 5");
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse();
+    match ast {
+        Ok(_) => panic!("expected error"),
+        Err(e) => println!("{:?}", miette::Report::new(e)),
+    }
+}
+
+#[test]
+fn test_errors2() {
+    let lexer = Lexer::new("(3 +)");
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse();
+    match ast {
+        Ok(_) => panic!("expected error"),
+        Err(e) => println!("{:?}", miette::Report::new(e)),
+    }
 }

@@ -32,7 +32,7 @@ fn main() {
             let mut had_lexical_errors = false;
             for token in lexer {
                 match token {
-                    Ok(token) => println!("{}", token.fmt_as_book()),
+                    Ok((token, _)) => println!("{}", token.fmt_as_book()),
                     Err(err) => {
                         had_lexical_errors = true;
                         eprintln!("{}", err)
@@ -51,8 +51,14 @@ fn main() {
             });
             let lexer = Lexer::new(&file_contents);
             let mut parser = parser::Parser::new(lexer);
-            let ast = parser.parse().unwrap();
-            println!("{}", ast);
+            let ast = parser.parse();
+            match ast {
+                Ok(ast) => println!("{}", ast),
+                Err(err) =>{
+                    eprintln!("{}", err);
+                    std::process::exit(65);
+                }
+            }
         }
         _ => {
             eprintln!("Unknown command: {}", command)

@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::lexer::{Keyword, Lexer, LexerError, Token};
+use crate::lexer::{Keyword, Lexer, LexerError, Token, TokenMeta};
 
 mod error;
 #[cfg(test)]
@@ -8,9 +8,11 @@ mod tests;
 
 pub use error::*;
 
+type LexerReturnToken<'a> = (Token<'a>, TokenMeta);
+
 struct PeekableLexer<'a> {
     lexer: Lexer<'a>,
-    peeked: Option<Result<Token<'a>, LexerError<'a>>>,
+    peeked: Option<Result<LexerReturnToken<'a>, LexerError<'a>>>,
 }
 
 impl<'a> PeekableLexer<'a> {
@@ -21,19 +23,19 @@ impl<'a> PeekableLexer<'a> {
         }
     }
 
-    fn peek(&mut self) -> Option<&Result<Token<'a>, LexerError<'a>>> {
+    fn peek(&mut self) -> Option<&Result<LexerReturnToken<'a>, LexerError<'a>>> {
         if self.peeked.is_none() {
             self.peeked = self.lexer.next();
         }
         self.peeked.as_ref()
     }
 
-    fn next_if<F>(&mut self, f: F) -> Option<Result<Token<'a>, LexerError<'a>>>
+    fn next_if<F>(&mut self, f: F) -> Option<Result<LexerReturnToken<'a>, LexerError<'a>>>
     where
-        F: Fn(&Result<Token<'a>, LexerError<'a>>) -> bool,
+        F: Fn(&Token<'a>) -> bool,
     {
-        if let Some(peeked) = self.peek() {
-            if f(peeked) {
+        if let Some(peeked) = self.peek().and_then(|res| res.as_ref().ok()) {
+            if f(&peeked.0) {
                 return self.peeked.take();
             }
         }
@@ -42,7 +44,7 @@ impl<'a> PeekableLexer<'a> {
 }
 
 impl<'a> Iterator for PeekableLexer<'a> {
-    type Item = Result<Token<'a>, LexerError<'a>>;
+    type Item = Result<LexerReturnToken<'a>, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.peeked.is_some() {
@@ -54,13 +56,17 @@ impl<'a> Iterator for PeekableLexer<'a> {
 }
 
 pub struct Parser<'a> {
+    input: &'a str,
     lexer: PeekableLexer<'a>,
+    errors: Vec<ParserError<'a>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer<'a>) -> Self {
         Self {
+            input: lexer.input(),
             lexer: PeekableLexer::new(lexer),
+            errors: vec![],
         }
     }
 
@@ -73,9 +79,9 @@ impl<'a> Parser<'a> {
 
         while let Some(token) = self
             .lexer
-            .next_if(|tok| matches!(tok, Ok(Token::EqEq | Token::BangEq)))
+            .next_if(|tok| matches!(tok, Token::EqEq | Token::BangEq))
         {
-            let op = BinaryOp::try_from_token(&token?).unwrap();
+            let op = BinaryOp::try_from_token(&token?.0).unwrap();
             let right = self.parse_comparison()?;
             expr = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
@@ -92,9 +98,9 @@ impl<'a> Parser<'a> {
 
         while let Some(token) = self
             .lexer
-            .next_if(|tok| matches!(tok, Ok(Token::Gt | Token::Lt | Token::GtEq | Token::LtEq)))
+            .next_if(|tok| matches!(tok, Token::Gt | Token::Lt | Token::GtEq | Token::LtEq))
         {
-            let op = BinaryOp::try_from_token(&token?).unwrap();
+            let op = BinaryOp::try_from_token(&token?.0).unwrap();
             let right = self.parse_term()?;
             expr = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
@@ -111,9 +117,9 @@ impl<'a> Parser<'a> {
 
         while let Some(token) = self
             .lexer
-            .next_if(|tok| matches!(tok, Ok(Token::Minus | Token::Plus)))
+            .next_if(|tok| matches!(tok, Token::Minus | Token::Plus))
         {
-            let op = BinaryOp::try_from_token(&token?).unwrap();
+            let op = BinaryOp::try_from_token(&token?.0).unwrap();
             let right = self.parse_factor()?;
             expr = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
@@ -130,9 +136,9 @@ impl<'a> Parser<'a> {
 
         while let Some(token) = self
             .lexer
-            .next_if(|tok| matches!(tok, Ok(Token::Slash | Token::Star)))
+            .next_if(|tok| matches!(tok, Token::Slash | Token::Star))
         {
-            let op = BinaryOp::try_from_token(&token?).unwrap();
+            let op = BinaryOp::try_from_token(&token?.0).unwrap();
             let right = self.parse_unary()?;
             expr = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
@@ -147,9 +153,9 @@ impl<'a> Parser<'a> {
     fn parse_unary(&mut self) -> Result<Expr, ParserError<'a>> {
         if let Some(token) = self
             .lexer
-            .next_if(|tok| matches!(tok, Ok(Token::Bang | Token::Minus)))
+            .next_if(|tok| matches!(tok, Token::Bang | Token::Minus))
         {
-            let op = UnaryOp::try_from_token(&token?).unwrap();
+            let op = UnaryOp::try_from_token(&token?.0).unwrap();
             let right = self.parse_unary()?;
             return Ok(Expr::Unary(Box::new(UnaryExpr { op, right })));
         }
@@ -158,24 +164,84 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary(&mut self) -> Result<Expr, ParserError<'a>> {
-        let Some(token) = self.lexer.next() else {
-            todo!()
+        let Some(Ok((token, token_meta))) = self.lexer.next_if(|tok| {
+            matches!(
+                tok,
+                Token::Number { .. }
+                    | Token::String { .. }
+                    | Token::Keyword(Keyword::True)
+                    | Token::Keyword(Keyword::False)
+                    | Token::Keyword(Keyword::Nil)
+                    | Token::LParen
+            )
+        }) else {
+            let Some(Ok((token, token_meta))) = self.lexer.peek() else {
+                todo!()
+            };
+            let token_len = token.lexeme().len();
+            let err = MissingItemError::new(
+                self.input,
+                token_meta.line,
+                token.clone(),
+                (token_meta.start, token_len).into(),
+                "Expect expression.",
+            );
+            return Err(ParserError::MissingItem(err));
         };
         match token {
-            Ok(Token::Number { value, .. }) => Ok(Expr::Number(value)),
-            Ok(Token::String { value, .. }) => Ok(Expr::String(value.to_string())),
-            Ok(Token::Keyword(Keyword::True)) => Ok(Expr::Bool(true)),
-            Ok(Token::Keyword(Keyword::False)) => Ok(Expr::Bool(false)),
-            Ok(Token::Keyword(Keyword::Nil)) => Ok(Expr::Nil),
-            Ok(Token::LParen) => {
+            Token::Number { value, .. } => Ok(Expr::Number(value)),
+            Token::String { value, .. } => Ok(Expr::String(value.to_string())),
+            Token::Keyword(Keyword::True) => Ok(Expr::Bool(true)),
+            Token::Keyword(Keyword::False) => Ok(Expr::Bool(false)),
+            Token::Keyword(Keyword::Nil) => Ok(Expr::Nil),
+            Token::LParen => {
                 let expr = self.parse()?;
-                if let Some(Ok(_)) = self.lexer.next_if(|tok| matches!(tok, Ok(Token::RParen))) {
+                if let Some(Ok(_)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen)) {
                 } else {
-                    todo!("ERROR");
+                    let peek = self.lexer.peek();
+
+                    let end = if let Some(Ok((_, meta))) = peek {
+                        meta.start
+                    } else {
+                        self.input.len()
+                    };
+
+                    let err = MissingItemError::new(
+                        self.input,
+                        token_meta.line,
+                        Token::RParen,
+                        (token_meta.start..end).into(),
+                        "Expect ')' after expression.",
+                    );
+                    return Err(ParserError::MissingItem(err));
                 }
                 Ok(Expr::Group(Box::new(expr)))
             }
-            c => todo!("{:#?}", c),
+            _ => unreachable!(),
+        }
+    }
+
+    fn synchronize(&mut self) {
+        let matches_keyword = |tok: &Token<'_>| {
+            matches!(
+                tok,
+                Token::Keyword(
+                    Keyword::Class
+                        | Keyword::Fun
+                        | Keyword::Var
+                        | Keyword::For
+                        | Keyword::If
+                        | Keyword::While
+                        | Keyword::Print
+                        | Keyword::Return
+                )
+            )
+        };
+
+        while let Some(Ok((tok, _))) = self.lexer.next_if(|tok| !matches_keyword(tok)) {
+            if tok == Token::Semicolon {
+                return;
+            }
         }
     }
 }
@@ -230,7 +296,7 @@ pub enum BinaryOp {
     Lt,
     Gt,
     LtEq,
-    GtEq
+    GtEq,
 }
 
 impl BinaryOp {
