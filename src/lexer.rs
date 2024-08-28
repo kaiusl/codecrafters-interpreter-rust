@@ -8,6 +8,31 @@ mod tests;
 
 pub use error::*;
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct Span {
+    pub line: usize,
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    pub fn new(line: usize, start: usize, end: usize) -> Self {
+        Self { line, start, end }
+    }
+
+    pub fn from_len(line: usize, start: usize, len: usize) -> Self {
+        Self::new(line, start, start + len)
+    }
+
+    pub fn combine(&self, other: &Self) -> Self {
+        Self::new(
+            usize::min(self.line, other.line), // start line number
+            usize::min(self.start, other.start),
+            usize::max(self.end, other.end),
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Chars<'a> {
     input: &'a str,
@@ -86,14 +111,8 @@ impl<'a> Lexer<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TokenMeta {
-    pub line: usize,
-    pub start: usize,
-}
-
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<(Token<'a>, TokenMeta), LexerError<'a>>;
+    type Item = Result<(Token<'a>, Span), LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -102,10 +121,7 @@ impl<'a> Iterator for Lexer<'a> {
                     return None;
                 } else {
                     self.eof = true;
-                    let meta = TokenMeta {
-                        line: self.line,
-                        start: self.input.len(),
-                    };
+                    let meta = Span::from_len(self.line, self.input.len(), 1);
                     return Some(Ok((Token::Eof, meta)));
                 }
             };
@@ -231,12 +247,8 @@ impl<'a> Iterator for Lexer<'a> {
                 }
             };
 
-            let meta = TokenMeta {
-                line: self.line,
-                start,
-            };
-
-            return Some(Ok((token, meta)));
+            let span = Span::from_len(self.line, start, token.lexeme().len());
+            return Some(Ok((token, span)));
         }
     }
 }

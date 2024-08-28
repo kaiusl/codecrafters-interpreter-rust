@@ -44,6 +44,10 @@ fn test_equality_ops() {
 #[case("-\"fsa\"")]
 #[should_panic(expected = "Operand must be a number")]
 #[case("-true")]
+#[should_panic(expected = "Operand must be a number")]
+#[case("1 > -true")]
+#[should_panic(expected = "Operands must be numbers")]
+#[case("1 - true")]
 fn test_unary_errors(#[case] input: &str) {
     super::eval(input).unwrap().unwrap();
 }
