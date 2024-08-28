@@ -97,25 +97,18 @@ fn test_binary_simple() {
 
 #[test]
 fn test_binary_complex() {
-    let inner = Expr::Binary(Box::new(BinaryExpr {
-        left: Expr::Number(3.0),
-        op: BinaryOp::Add,
-        right: Expr::Number(5.0),
-    }));
-    let group = Expr::Group(Box::new(inner));
+    let lexer = Lexer::new("1 + 2 * (3 + 5)",);
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse().unwrap();
+    assert_eq!("(+ 1.0 (* 2.0 (group (+ 3.0 5.0))))", format!("{}", ast));
+    insta::assert_debug_snapshot!(ast);    
+}
 
-    let mul = Expr::Binary(Box::new(BinaryExpr {
-        left: Expr::Number(2.0),
-        op: BinaryOp::Mul,
-        right: group,
-    }));
-
-    test(
-        "1 + 2 * (3 + 5)",
-        Expr::Binary(Box::new(BinaryExpr {
-            left: Expr::Number(1.0),
-            op: BinaryOp::Add,
-            right: mul,
-        })),
-    )
+#[test]
+fn test_mix() {
+    let lexer = Lexer::new("1 + !true * (!!3 + -5)",);
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse().unwrap();
+    assert_eq!("(+ 1.0 (* (! true) (group (+ (! (! 3.0)) (- 5.0)))))", format!("{}", ast));
+    insta::assert_debug_snapshot!(ast);    
 }

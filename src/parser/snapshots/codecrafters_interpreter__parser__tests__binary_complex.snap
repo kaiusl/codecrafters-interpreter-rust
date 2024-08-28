@@ -1,0 +1,33 @@
+---
+source: src/parser/tests.rs
+expression: ast
+---
+Binary(
+    BinaryExpr {
+        left: Number(
+            1.0,
+        ),
+        op: Add,
+        right: Binary(
+            BinaryExpr {
+                left: Number(
+                    2.0,
+                ),
+                op: Mul,
+                right: Group(
+                    Binary(
+                        BinaryExpr {
+                            left: Number(
+                                3.0,
+                            ),
+                            op: Add,
+                            right: Number(
+                                5.0,
+                            ),
+                        },
+                    ),
+                ),
+            },
+        ),
+    },
+)

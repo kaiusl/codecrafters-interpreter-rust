@@ -175,7 +175,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(Expr::Group(Box::new(expr)))
             }
-            _ => todo!(),
+            c => todo!("{:#?}", c),
         }
     }
 }
