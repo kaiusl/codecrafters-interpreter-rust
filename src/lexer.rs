@@ -326,9 +326,9 @@ impl<'a> Token<'a> {
             Token::Number { value, .. } if value.fract() == 0.0 => {
                 Cow::Owned(format!("{}.0", value))
             }
-            Token::String { value, .. }
-            | Token::Number { lexeme: value, .. }
-            | Token::Ident(value) => Cow::Borrowed(value),
+            Token::String { value, .. } | Token::Number { lexeme: value, .. } => {
+                Cow::Borrowed(value)
+            }
 
             _ => Cow::Borrowed("null"),
         }
