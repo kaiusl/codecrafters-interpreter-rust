@@ -16,10 +16,14 @@ impl Interpreter {
     }
 
     pub fn eval(self) -> Object {
-        match self.ast {
+        Self::eval_expr(self.ast)
+    }
+
+    fn eval_expr(expr: Expr) -> Object {
+        match expr {
             Expr::Binary(_) => todo!(),
             Expr::Unary(_) => todo!(),
-            Expr::Group(_) => todo!(),
+            Expr::Group(inner) => Self::eval_expr(*inner),
             Expr::String(s) => Object::String(s),
             Expr::Number(n) => Object::Number(n),
             Expr::Bool(b) => Object::Bool(b),
