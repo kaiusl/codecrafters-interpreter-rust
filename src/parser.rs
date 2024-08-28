@@ -227,6 +227,10 @@ pub enum BinaryOp {
     Div,
     Eq,
     NotEq,
+    Lt,
+    Gt,
+    LtEq,
+    GtEq
 }
 
 impl BinaryOp {
@@ -238,6 +242,10 @@ impl BinaryOp {
             Token::Slash => Some(BinaryOp::Div),
             Token::EqEq => Some(BinaryOp::Eq),
             Token::BangEq => Some(BinaryOp::NotEq),
+            Token::Lt => Some(BinaryOp::Lt),
+            Token::Gt => Some(BinaryOp::Gt),
+            Token::LtEq => Some(BinaryOp::LtEq),
+            Token::GtEq => Some(BinaryOp::GtEq),
             _ => None,
         }
     }
@@ -252,6 +260,10 @@ impl fmt::Display for BinaryOp {
             BinaryOp::Div => write!(f, "/"),
             BinaryOp::Eq => write!(f, "=="),
             BinaryOp::NotEq => write!(f, "!="),
+            BinaryOp::Lt => write!(f, "<"),
+            BinaryOp::Gt => write!(f, ">"),
+            BinaryOp::LtEq => write!(f, "<="),
+            BinaryOp::GtEq => write!(f, ">="),
         }
     }
 }
