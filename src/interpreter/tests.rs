@@ -32,3 +32,30 @@ fn test_arithmetic_ops() {
     let interpreter = Interpreter::from_str("\"1\" + \"2\"").unwrap();
     assert_eq!(Object::String("12".to_string()), interpreter.eval());
 }
+
+#[test]
+fn test_relational_ops() {
+    let interpreter = Interpreter::from_str("1 < 2").unwrap();
+    assert_eq!(Object::Bool(true), interpreter.eval());
+
+    let interpreter = Interpreter::from_str("1 > 2").unwrap();
+    assert_eq!(Object::Bool(false), interpreter.eval());
+
+    let interpreter = Interpreter::from_str("(1+6) <= (2*6)").unwrap();
+    assert_eq!(Object::Bool(true), interpreter.eval());
+}
+
+#[test]
+fn test_equality_ops() {
+    let interpreter = Interpreter::from_str("1 == 1").unwrap();
+    assert_eq!(Object::Bool(true), interpreter.eval());
+
+    let interpreter = Interpreter::from_str("1 == 2").unwrap();
+    assert_eq!(Object::Bool(false), interpreter.eval());
+
+    let interpreter = Interpreter::from_str("true == true").unwrap();
+    assert_eq!(Object::Bool(true), interpreter.eval());
+
+    let interpreter = Interpreter::from_str("\"sf\" != 5").unwrap();
+    assert_eq!(Object::Bool(true), interpreter.eval());
+}

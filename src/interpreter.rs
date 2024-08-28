@@ -77,12 +77,32 @@ impl Interpreter {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
                 _ => todo!(),
             },
-            BinaryOp::Eq => todo!(),
-            BinaryOp::NotEq => todo!(),
-            BinaryOp::Lt => todo!(),
-            BinaryOp::Gt => todo!(),
-            BinaryOp::LtEq => todo!(),
-            BinaryOp::GtEq => todo!(),
+            BinaryOp::Eq => Object::Bool(left == right),
+            BinaryOp::NotEq => Object::Bool(left != right),
+            BinaryOp::Lt => {
+                match (left, right) {
+                    (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
+                    _ => todo!(),
+                }
+            },
+            BinaryOp::Gt => {
+                match (left, right) {
+                    (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
+                    _ => todo!(),
+                }
+            },
+            BinaryOp::LtEq => {
+                match (left, right) {
+                    (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
+                    _ => todo!(),
+                }
+            },
+            BinaryOp::GtEq => {
+                match (left, right) {
+                    (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
+                    _ => todo!(),
+                }
+            },
         }
     }
 }
