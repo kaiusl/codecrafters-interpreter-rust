@@ -3,6 +3,7 @@
 use std::env;
 use std::fs;
 
+mod interpreter;
 mod lexer;
 mod parser;
 
@@ -54,7 +55,27 @@ fn main() {
             let ast = parser.parse();
             match ast {
                 Ok(ast) => println!("{}", ast),
-                Err(err) =>{
+                Err(err) => {
+                    eprintln!("{}", err);
+                    std::process::exit(65);
+                }
+            }
+        }
+        "evaluate" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
+            let lexer = Lexer::new(&file_contents);
+            let mut parser = parser::Parser::new(lexer);
+            let ast = parser.parse();
+            match ast {
+                Ok(ast) => {
+                    let interpreter = interpreter::Interpreter::new(ast);
+                    let result = interpreter.eval();
+                    println!("{}", result);
+                }
+                Err(err) => {
                     eprintln!("{}", err);
                     std::process::exit(65);
                 }
