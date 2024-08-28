@@ -40,7 +40,6 @@ impl fmt::Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Object::String(s) => write!(f, "{}", s),
-            Object::Number(n) if n.fract() == 0.0 => write!(f, "{}.0", n),
             Object::Number(n) => write!(f, "{}", n),
             Object::Bool(b) => write!(f, "{}", b),
             Object::Nil => write!(f, "nil"),
