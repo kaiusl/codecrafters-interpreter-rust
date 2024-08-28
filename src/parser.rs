@@ -41,6 +41,10 @@ impl<'a> PeekableLexer<'a> {
         }
         None
     }
+
+    fn line(&self) -> usize {
+        self.lexer.line()
+    }
 }
 
 impl<'a> Iterator for PeekableLexer<'a> {
@@ -175,15 +179,28 @@ impl<'a> Parser<'a> {
                     | Token::LParen
             )
         }) else {
-            let Some(Ok((token, token_meta))) = self.lexer.peek() else {
-                todo!()
+            let (token, token_meta, len) = match self.lexer.peek() {
+                Some(Ok((token, token_mtea))) => (
+                    &MissingItemLocation::Token(token.clone()),
+                    token_mtea,
+                    token.lexeme().len(),
+                ),
+                Some(Err(e)) => return Err(e.clone().into()),
+                None => (
+                    &MissingItemLocation::End,
+                    &TokenMeta {
+                        line: self.lexer.line(),
+                        start: self.input.len() - 1,
+                    },
+                    1,
+                ),
             };
-            let token_len = token.lexeme().len();
+
             let err = MissingItemError::new(
                 self.input,
                 token_meta.line,
                 token.clone(),
-                (token_meta.start, token_len).into(),
+                (token_meta.start, len).into(),
                 "Expect expression.",
             );
             return Err(ParserError::MissingItem(err));
@@ -209,7 +226,7 @@ impl<'a> Parser<'a> {
                     let err = MissingItemError::new(
                         self.input,
                         token_meta.line,
-                        Token::RParen,
+                        MissingItemLocation::Token(Token::RParen),
                         (token_meta.start..end).into(),
                         "Expect ')' after expression.",
                     );

@@ -80,6 +80,10 @@ impl<'a> Lexer<'a> {
     pub fn input(&self) -> &'a str {
         self.input
     }
+
+    pub fn line(&self) -> usize {
+        self.line
+    }
 }
 
 #[derive(Debug, Clone)]

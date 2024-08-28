@@ -139,3 +139,15 @@ fn test_errors2() {
         Err(e) => println!("{:?}", miette::Report::new(e)),
     }
 }
+
+
+#[test]
+fn test_errors3() {
+    let lexer = Lexer::new("\"world");
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse();
+    match ast {
+        Ok(_) => panic!("expected error"),
+        Err(e) => println!("{:?}", miette::Report::new(e)),
+    }
+}

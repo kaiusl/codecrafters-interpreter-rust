@@ -82,4 +82,8 @@ impl<'a> UnterminatedStringError<'a> {
             span: self.span,
         }
     }
+
+    pub fn span(&self) -> miette::SourceSpan {
+        self.span
+    }
 }
