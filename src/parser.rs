@@ -164,6 +164,36 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
+        fn error_unexpected_token<'a>(s: &mut Parser<'a>) -> ParserError<'a> {
+            let (token, token_meta, len) = match s.lexer.peek() {
+                Some(Ok(token)) => (
+                    &MissingItemLocation::Token(token.item.clone()),
+                    &token.span,
+                    token.lexeme().len(),
+                ),
+                Some(Err(e)) => return e.clone().into(),
+                None => (
+                    &MissingItemLocation::End,
+                    &Span {
+                        line: s.lexer.line(),
+                        start: s.input.len() - 1,
+                        end: 0,
+                    },
+                    1,
+                ),
+            };
+
+            let err = MissingItemError::new(
+                s.input,
+                token_meta.line,
+                token.clone(),
+                (token_meta.start, len).into(),
+                "Expect expression.",
+            );
+
+            ParserError::MissingItem(err)
+        }
+
         let Some(Ok(token)) = self.lexer.next_if(|tok| {
             matches!(
                 tok,
@@ -175,35 +205,9 @@ impl<'a> Parser<'a> {
                     | Token::LParen
             )
         }) else {
-            // Found an unexpected token
-            let (token, token_meta, len) = match self.lexer.peek() {
-                Some(Ok(token)) => (
-                    &MissingItemLocation::Token(token.item.clone()),
-                    &token.span,
-                    token.lexeme().len(),
-                ),
-                Some(Err(e)) => return Err(e.clone().into()),
-                None => (
-                    &MissingItemLocation::End,
-                    &Span {
-                        line: self.lexer.line(),
-                        start: self.input.len() - 1,
-                        end: 0,
-                    },
-                    1,
-                ),
-            };
-
-            let err = MissingItemError::new(
-                self.input,
-                token_meta.line,
-                token.clone(),
-                (token_meta.start, len).into(),
-                "Expect expression.",
-            );
-            return Err(ParserError::MissingItem(err));
+            return Err(error_unexpected_token(self));
         };
-        
+
         match token.item {
             Token::Number { value, .. } => Ok(Spanned::new(Expr::Number(value), token.span)),
             Token::String { value, .. } => {
@@ -212,37 +216,45 @@ impl<'a> Parser<'a> {
             Token::Keyword(Keyword::True) => Ok(Spanned::new(Expr::Bool(true), token.span)),
             Token::Keyword(Keyword::False) => Ok(Spanned::new(Expr::Bool(false), token.span)),
             Token::Keyword(Keyword::Nil) => Ok(Spanned::new(Expr::Nil, token.span)),
-            Token::LParen => {
-                let lparen = token;
-                let expr = self.parse()?;
-                let Some(Ok(rparen)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen))
-                else {
-                    let peek = self.lexer.peek();
-
-                    let end = if let Some(Ok(token)) = peek {
-                        token.span.start
-                    } else {
-                        self.input.len()
-                    };
-
-                    let err = MissingItemError::new(
-                        self.input,
-                        lparen.span.line,
-                        MissingItemLocation::Token(Token::RParen),
-                        (lparen.span.start..end).into(),
-                        "Expect ')' after expression.",
-                    );
-                    return Err(ParserError::MissingItem(err));
-                };
-                let span = expr
-                    .span
-                    .clone()
-                    .combine(&lparen.span)
-                    .combine(&rparen.span);
-                Ok(Spanned::new(Expr::group(expr), span))
-            }
+            Token::LParen => self.parse_group(token),
             _ => unreachable!(),
         }
+    }
+    fn parse_group(
+        &mut self,
+        lparen: Spanned<Token<'a>>,
+    ) -> Result<Spanned<Expr>, ParserError<'a>> {
+        fn error_no_rparen<'a>(s: &mut Parser<'a>, lparen: Spanned<Token<'a>>) -> ParserError<'a> {
+            let peek = s.lexer.peek();
+
+            let end = if let Some(Ok(token)) = peek {
+                token.span.start
+            } else {
+                s.input.len()
+            };
+
+            let err = MissingItemError::new(
+                s.input,
+                lparen.span.line,
+                MissingItemLocation::Token(Token::RParen),
+                (lparen.span.start..end).into(),
+                "Expect ')' after expression.",
+            );
+            ParserError::MissingItem(err)
+        }
+
+        let inner_expr = self.parse()?;
+
+        let Some(Ok(rparen)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen)) else {
+            return Err(error_no_rparen(self, lparen));
+        };
+
+        let span = inner_expr
+            .span
+            .clone()
+            .combine(&lparen.span)
+            .combine(&rparen.span);
+        Ok(Spanned::new(Expr::group(inner_expr), span))
     }
 
     fn synchronize(&mut self) {
