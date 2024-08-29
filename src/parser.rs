@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::lexer::{Keyword, Lexer, LexerError, Span, Token};
+use crate::lexer::{Keyword, Lexer, LexerError, Span, Spanned, Token};
 
 mod error;
 #[cfg(test)]
@@ -8,11 +8,9 @@ mod tests;
 
 pub use error::*;
 
-type SpannedToken<'a> = (Token<'a>, Span);
-
 struct PeekableLexer<'a> {
     lexer: Lexer<'a>,
-    peeked: Option<Result<SpannedToken<'a>, LexerError<'a>>>,
+    peeked: Option<Result<Spanned<Token<'a>>, LexerError<'a>>>,
 }
 
 impl<'a> PeekableLexer<'a> {
@@ -23,19 +21,19 @@ impl<'a> PeekableLexer<'a> {
         }
     }
 
-    fn peek(&mut self) -> Option<&Result<SpannedToken<'a>, LexerError<'a>>> {
+    fn peek(&mut self) -> Option<&Result<Spanned<Token<'a>>, LexerError<'a>>> {
         if self.peeked.is_none() {
             self.peeked = self.lexer.next();
         }
         self.peeked.as_ref()
     }
 
-    fn next_if<F>(&mut self, f: F) -> Option<Result<SpannedToken<'a>, LexerError<'a>>>
+    fn next_if<F>(&mut self, f: F) -> Option<Result<Spanned<Token<'a>>, LexerError<'a>>>
     where
         F: Fn(&Token<'a>) -> bool,
     {
         if let Some(peeked) = self.peek().and_then(|res| res.as_ref().ok()) {
-            if f(&peeked.0) {
+            if f(&peeked) {
                 return self.peeked.take();
             }
         }
@@ -48,7 +46,7 @@ impl<'a> PeekableLexer<'a> {
 }
 
 impl<'a> Iterator for PeekableLexer<'a> {
-    type Item = Result<SpannedToken<'a>, LexerError<'a>>;
+    type Item = Result<Spanned<Token<'a>>, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.peeked.is_some() {
@@ -86,9 +84,9 @@ impl<'a> Parser<'a> {
             .next_if(|tok| matches!(tok, Token::EqEq | Token::BangEq))
         {
             let token = token?;
-            let op = BinaryOp::try_from_token(&token.0).unwrap();
+            let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_comparison()?;
-            let span = token.1.combine(&right.span).combine(&expr.span);
+            let span = token.span.combine(&right.span).combine(&expr.span);
             let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
@@ -108,9 +106,9 @@ impl<'a> Parser<'a> {
             .next_if(|tok| matches!(tok, Token::Gt | Token::Lt | Token::GtEq | Token::LtEq))
         {
             let token = token?;
-            let op = BinaryOp::try_from_token(&token.0).unwrap();
+            let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_term()?;
-            let span = token.1.combine(&right.span).combine(&expr.span);
+            let span = token.span.combine(&right.span).combine(&expr.span);
             let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
@@ -130,9 +128,9 @@ impl<'a> Parser<'a> {
             .next_if(|tok| matches!(tok, Token::Minus | Token::Plus))
         {
             let token = token?;
-            let op = BinaryOp::try_from_token(&token.0).unwrap();
+            let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_factor()?;
-            let span = token.1.combine(&right.span).combine(&expr.span);
+            let span = token.span.combine(&right.span).combine(&expr.span);
             let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
@@ -152,9 +150,9 @@ impl<'a> Parser<'a> {
             .next_if(|tok| matches!(tok, Token::Slash | Token::Star))
         {
             let token = token?;
-            let op = BinaryOp::try_from_token(&token.0).unwrap();
+            let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
-            let span = token.1.combine(&right.span).combine(&expr.span);
+            let span = token.span.combine(&right.span).combine(&expr.span);
             let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
@@ -172,9 +170,9 @@ impl<'a> Parser<'a> {
             .next_if(|tok| matches!(tok, Token::Bang | Token::Minus))
         {
             let token = token?;
-            let op = UnaryOp::try_from_token(&token.0).unwrap();
+            let op = UnaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
-            let span = token.1.combine(&right.span);
+            let span = token.span.combine(&right.span);
             let expr = ExprKind::Unary(Box::new(UnaryExpr { op, right }));
             return Ok(Expr::new(expr, span));
         }
@@ -183,7 +181,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_primary(&mut self) -> Result<Expr, ParserError<'a>> {
-        let Some(Ok((token, token_span))) = self.lexer.next_if(|tok| {
+        let Some(Ok(token)) = self.lexer.next_if(|tok| {
             matches!(
                 tok,
                 Token::Number { .. }
@@ -195,9 +193,9 @@ impl<'a> Parser<'a> {
             )
         }) else {
             let (token, token_meta, len) = match self.lexer.peek() {
-                Some(Ok((token, token_mtea))) => (
-                    &MissingItemLocation::Token(token.clone()),
-                    token_mtea,
+                Some(Ok(token)) => (
+                    &MissingItemLocation::Token(token.item.clone()),
+                    &token.span,
                     token.lexeme().len(),
                 ),
                 Some(Err(e)) => return Err(e.clone().into()),
@@ -221,31 +219,31 @@ impl<'a> Parser<'a> {
             );
             return Err(ParserError::MissingItem(err));
         };
-        match token {
-            Token::Number { value, .. } => Ok(Expr::new(ExprKind::Number(value), token_span)),
+        match token.item {
+            Token::Number { value, .. } => Ok(Expr::new(ExprKind::Number(value), token.span)),
             Token::String { value, .. } => {
-                Ok(Expr::new(ExprKind::String(value.to_string()), token_span))
+                Ok(Expr::new(ExprKind::String(value.to_string()), token.span))
             }
-            Token::Keyword(Keyword::True) => Ok(Expr::new(ExprKind::Bool(true), token_span)),
-            Token::Keyword(Keyword::False) => Ok(Expr::new(ExprKind::Bool(false), token_span)),
-            Token::Keyword(Keyword::Nil) => Ok(Expr::new(ExprKind::Nil, token_span)),
+            Token::Keyword(Keyword::True) => Ok(Expr::new(ExprKind::Bool(true), token.span)),
+            Token::Keyword(Keyword::False) => Ok(Expr::new(ExprKind::Bool(false), token.span)),
+            Token::Keyword(Keyword::Nil) => Ok(Expr::new(ExprKind::Nil, token.span)),
             Token::LParen => {
                 let expr = self.parse()?;
                 if let Some(Ok(_)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen)) {
                 } else {
                     let peek = self.lexer.peek();
 
-                    let end = if let Some(Ok((_, meta))) = peek {
-                        meta.start
+                    let end = if let Some(Ok(token)) = peek {
+                        token.span.start
                     } else {
                         self.input.len()
                     };
 
                     let err = MissingItemError::new(
                         self.input,
-                        token_span.line,
+                        token.span.line,
                         MissingItemLocation::Token(Token::RParen),
-                        (token_span.start..end).into(),
+                        (token.span.start..end).into(),
                         "Expect ')' after expression.",
                     );
                     return Err(ParserError::MissingItem(err));
@@ -274,8 +272,8 @@ impl<'a> Parser<'a> {
             )
         };
 
-        while let Some(Ok((tok, _))) = self.lexer.next_if(|tok| !matches_keyword(tok)) {
-            if tok == Token::Semicolon {
+        while let Some(Ok(tok)) = self.lexer.next_if(|tok| !matches_keyword(tok)) {
+            if tok.item == Token::Semicolon {
                 return;
             }
         }

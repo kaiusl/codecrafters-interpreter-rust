@@ -1,6 +1,6 @@
 use std::borrow::Cow;
-use std::fmt;
 use std::str::FromStr;
+use std::{fmt, ops};
 
 mod error;
 #[cfg(test)]
@@ -30,6 +30,32 @@ impl Span {
             usize::min(self.start, other.start),
             usize::max(self.end, other.end),
         )
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Spanned<T> {
+    pub item: T,
+    pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(item: T, span: Span) -> Self {
+        Self { item, span }
+    }
+}
+
+impl<T> ops::Deref for Spanned<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<T> ops::DerefMut for Spanned<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.item
     }
 }
 
@@ -112,7 +138,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<(Token<'a>, Span), LexerError<'a>>;
+    type Item = Result<Spanned<Token<'a>>, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -121,8 +147,8 @@ impl<'a> Iterator for Lexer<'a> {
                     return None;
                 } else {
                     self.eof = true;
-                    let meta = Span::from_len(self.line, self.input.len(), 1);
-                    return Some(Ok((Token::Eof, meta)));
+                    let span = Span::from_len(self.line, self.input.len(), 1);
+                    return Some(Ok(Spanned::new(Token::Eof, span)));
                 }
             };
 
@@ -248,7 +274,7 @@ impl<'a> Iterator for Lexer<'a> {
             };
 
             let span = Span::from_len(self.line, start, token.lexeme().len());
-            return Some(Ok((token, span)));
+            return Some(Ok(Spanned::new(token, span)));
         }
     }
 }

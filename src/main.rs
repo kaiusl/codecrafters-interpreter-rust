@@ -33,7 +33,7 @@ fn main() {
             let mut had_lexical_errors = false;
             for token in lexer {
                 match token {
-                    Ok((token, _)) => println!("{}", token.fmt_as_book()),
+                    Ok(token) => println!("{}", token.fmt_as_book()),
                     Err(err) => {
                         had_lexical_errors = true;
                         eprintln!("{}", err)

@@ -10,7 +10,7 @@ fn check_tokens(lexer: &mut Lexer<'_>, expected: &[Token<'_>]) {
     let mut count = 0;
 
     for (t, expected) in lexer.zip(expected) {
-        assert_eq!(&t.unwrap().0, expected);
+        assert_eq!(&t.unwrap().item, expected);
         count += 1;
     }
 
@@ -23,7 +23,7 @@ fn check_tokens_with_errors(lexer: &mut Lexer<'_>, expected: &[Result<Token<'_>,
 
     for t in lexer.zip(expected) {
         match t {
-            (Ok(t), Ok(expected)) => assert_eq!(&t.0, expected),
+            (Ok(t), Ok(expected)) => assert_eq!(&t.item, expected),
             (Err(e), Err(expected)) => match (e, expected) {
                 (LexerError::UnknownToken(c), LexerTestErr::UnknownCharacter(expected)) => {
                     let tok = c.token();
