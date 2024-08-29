@@ -175,7 +175,7 @@ impl<'a> Parser<'a> {
 
     fn parse_primary(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         fn error_unexpected_token<'a>(s: &mut Parser<'a>) -> ParserError<'a> {
-            let (token, token_meta, len) = match s.lexer.peek() {
+            let (token, span, len) = match s.lexer.peek() {
                 Some(Ok(token)) => (
                     &MissingItemLocation::Token(token.item.clone()),
                     &token.span,
@@ -184,20 +184,16 @@ impl<'a> Parser<'a> {
                 Some(Err(e)) => return e.clone().into(),
                 None => (
                     &MissingItemLocation::End,
-                    &Span {
-                        line: s.lexer.line(),
-                        start: s.input.len() - 1,
-                        end: 0,
-                    },
+                    &Span::from_len(s.lexer.line(), s.input.len() - 1, 1),
                     1,
                 ),
             };
 
             let err = MissingItemError::new(
                 s.input,
-                token_meta.line,
+                span.line,
                 token.clone(),
-                (token_meta.start, len).into(),
+                (span.start, len).into(),
                 "Expect expression.",
             );
 
