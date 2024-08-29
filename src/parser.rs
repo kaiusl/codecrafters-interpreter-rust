@@ -46,10 +46,6 @@ impl<'a> PeekableLexer<'a> {
     fn line(&self) -> usize {
         self.line
     }
-
-    fn peeked_line(&self) -> Option<usize> {
-        self.peek().map(|_| self.lexer.line())
-    }
 }
 
 impl<'a> Iterator for PeekableLexer<'a> {

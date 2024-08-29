@@ -65,8 +65,6 @@ impl<'a> Interpreter<'a> {
     fn eval_binary_expr(expr: BinaryExpr, span: Span) -> Result<Spanned<Object>, RuntimeError> {
         let BinaryExpr { left, op, right } = expr;
 
-        let fail_must_be_numbers = || Err(RuntimeError::operands_must_be_numbers(span.clone()));
-
         let left = Self::eval_expr(left)?;
         let right = Self::eval_expr(right)?;
 
@@ -78,33 +76,33 @@ impl<'a> Interpreter<'a> {
             },
             BinaryOp::Sub => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l - r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::Mul => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l * r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::Div => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::Eq => Object::Bool(left.item.eq_wo_span(&right.item)),
             BinaryOp::NotEq => Object::Bool(!left.item.eq_wo_span(&right.item)),
             BinaryOp::Lt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::Gt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::LtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
             BinaryOp::GtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
-                _ => return fail_must_be_numbers(),
+                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
             },
         };
 
