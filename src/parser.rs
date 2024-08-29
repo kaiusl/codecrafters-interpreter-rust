@@ -295,6 +295,33 @@ pub enum Expr {
     Nil,
 }
 
+impl Expr {
+    pub fn group(expr: Spanned<Expr>) -> Self {
+        Self::Group(Box::new(expr))
+    }
+
+    pub fn binary(expr: BinaryExpr) -> Self {
+        Self::Binary(Box::new(expr))
+    }
+
+    pub fn unary(expr: UnaryExpr) -> Self {
+        Self::Unary(Box::new(expr))
+    }
+
+    pub fn eq_wo_spans(&self, other: &Expr) -> bool {
+        match (self, other) {
+            (Expr::Binary(f0_self), Expr::Binary(f0_other)) => f0_self.eq_wo_spans(f0_other),
+            (Expr::Unary(f0_self), Expr::Unary(f0_other)) => f0_self.eq_wo_spans(f0_other),
+            (Expr::Group(f0_self), Expr::Group(f0_other)) => f0_self.eq_wo_spans(f0_other),
+            (Expr::String(f0_self), Expr::String(f0_other)) => f0_self.eq(f0_other),
+            (Expr::Number(f0_self), Expr::Number(f0_other)) => f0_self.eq(f0_other),
+            (Expr::Bool(f0_self), Expr::Bool(f0_other)) => f0_self.eq(f0_other),
+            (Expr::Nil, Expr::Nil) => true,
+            _unused => false,
+        }
+    }
+}
+
 impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -315,6 +342,14 @@ pub struct BinaryExpr {
     pub left: Spanned<Expr>,
     pub op: BinaryOp,
     pub right: Spanned<Expr>,
+}
+
+impl BinaryExpr {
+    pub fn eq_wo_spans(&self, other: &BinaryExpr) -> bool {
+        self.left.eq_wo_spans(&other.left)
+            && self.op.eq(&other.op)
+            && self.right.eq_wo_spans(&other.right)
+    }
 }
 
 impl fmt::Display for BinaryExpr {
@@ -376,6 +411,12 @@ impl fmt::Display for BinaryOp {
 pub struct UnaryExpr {
     pub op: UnaryOp,
     pub right: Spanned<Expr>,
+}
+
+impl UnaryExpr {
+    pub fn eq_wo_spans(&self, other: &UnaryExpr) -> bool {
+        self.op.eq(&other.op) && self.right.eq_wo_spans(&other.right)
+    }
 }
 
 impl fmt::Display for UnaryExpr {
