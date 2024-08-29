@@ -69,6 +69,7 @@ impl<'a> Interpreter<'a> {
 
         let left = Self::eval_expr(left)?;
         let right = Self::eval_expr(right)?;
+
         let item = match op {
             BinaryOp::Add => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
@@ -87,8 +88,8 @@ impl<'a> Interpreter<'a> {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Eq => Object::Bool(left.item == right.item),
-            BinaryOp::NotEq => Object::Bool(left.item != right.item),
+            BinaryOp::Eq => Object::Bool(left.item.eq_wo_span(&right.item)),
+            BinaryOp::NotEq => Object::Bool(!left.item.eq_wo_span(&right.item)),
             BinaryOp::Lt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
                 _ => return fail_must_be_numbers(),
@@ -120,6 +121,17 @@ pub enum Object {
 }
 
 impl Object {
+    pub fn eq_wo_span(&self, other: &Object) -> bool {
+        // Not necessary atm, but when later objects can contain other objects it avoids wrong comparison
+        match (self, other) {
+            (Object::String(l), Object::String(r)) => l == r,
+            (Object::Number(l), Object::Number(r)) => l == r,
+            (Object::Bool(l), Object::Bool(r)) => l == r,
+            (Object::Nil, Object::Nil) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_truthy(&self) -> bool {
         !matches!(self, Object::Nil | Object::Bool(false))
     }
