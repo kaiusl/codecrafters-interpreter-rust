@@ -11,6 +11,7 @@ pub use error::*;
 struct PeekableLexer<'a> {
     lexer: Lexer<'a>,
     peeked: Option<Result<Spanned<Token<'a>>, LexerError<'a>>>,
+    line: usize,
 }
 
 impl<'a> PeekableLexer<'a> {
@@ -18,6 +19,7 @@ impl<'a> PeekableLexer<'a> {
         Self {
             lexer,
             peeked: None,
+            line: 0,
         }
     }
 
@@ -34,6 +36,7 @@ impl<'a> PeekableLexer<'a> {
     {
         if let Some(peeked) = self.peek().and_then(|res| res.as_ref().ok()) {
             if f(&peeked) {
+                self.line = self.lexer.line();
                 return self.peeked.take();
             }
         }
@@ -41,7 +44,11 @@ impl<'a> PeekableLexer<'a> {
     }
 
     fn line(&self) -> usize {
-        self.lexer.line()
+        self.line
+    }
+
+    fn peeked_line(&self) -> Option<usize> {
+        self.peek().map(|_| self.lexer.line())
     }
 }
 
@@ -49,11 +56,14 @@ impl<'a> Iterator for PeekableLexer<'a> {
     type Item = Result<Spanned<Token<'a>>, LexerError<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.peeked.is_some() {
+        let result = if self.peeked.is_some() {
             self.peeked.take()
         } else {
             self.lexer.next()
-        }
+        };
+        self.line = self.lexer.line();
+
+        result
     }
 }
 
