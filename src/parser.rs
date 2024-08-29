@@ -86,11 +86,7 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_comparison()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = Expr::Binary(Box::new(BinaryExpr {
-                left: expr,
-                op,
-                right,
-            }));
+            let exprkind = Expr::binary(expr, op, right);
             expr = Spanned::new(exprkind, span);
         }
 
@@ -108,11 +104,7 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_term()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = Expr::Binary(Box::new(BinaryExpr {
-                left: expr,
-                op,
-                right,
-            }));
+            let exprkind = Expr::binary(expr, op, right);
             expr = Spanned::new(exprkind, span);
         }
 
@@ -130,11 +122,7 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_factor()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = Expr::Binary(Box::new(BinaryExpr {
-                left: expr,
-                op,
-                right,
-            }));
+            let exprkind = Expr::binary(expr, op, right);
             expr = Spanned::new(exprkind, span);
         }
 
@@ -152,11 +140,7 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = Expr::Binary(Box::new(BinaryExpr {
-                left: expr,
-                op,
-                right,
-            }));
+            let exprkind = Expr::binary(expr, op, right);
             expr = Spanned::new(exprkind, span);
         }
 
@@ -172,7 +156,7 @@ impl<'a> Parser<'a> {
             let op = UnaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
             let span = token.span.combine(&right.span);
-            let expr = Expr::Unary(Box::new(UnaryExpr { op, right }));
+            let expr = Expr::unary(op, right);
             return Ok(Spanned::new(expr, span));
         }
 
@@ -191,6 +175,7 @@ impl<'a> Parser<'a> {
                     | Token::LParen
             )
         }) else {
+            // Found an unexpected token
             let (token, token_meta, len) = match self.lexer.peek() {
                 Some(Ok(token)) => (
                     &MissingItemLocation::Token(token.item.clone()),
@@ -218,6 +203,7 @@ impl<'a> Parser<'a> {
             );
             return Err(ParserError::MissingItem(err));
         };
+        
         match token.item {
             Token::Number { value, .. } => Ok(Spanned::new(Expr::Number(value), token.span)),
             Token::String { value, .. } => {
@@ -253,7 +239,7 @@ impl<'a> Parser<'a> {
                     .clone()
                     .combine(&lparen.span)
                     .combine(&rparen.span);
-                Ok(Spanned::new(Expr::Group(Box::new(expr)), span))
+                Ok(Spanned::new(Expr::group(expr), span))
             }
             _ => unreachable!(),
         }
@@ -300,12 +286,12 @@ impl Expr {
         Self::Group(Box::new(expr))
     }
 
-    pub fn binary(expr: BinaryExpr) -> Self {
-        Self::Binary(Box::new(expr))
+    pub fn binary(left: Spanned<Expr>, op: BinaryOp, right: Spanned<Expr>) -> Self {
+        Self::Binary(Box::new(BinaryExpr { left, op, right }))
     }
 
-    pub fn unary(expr: UnaryExpr) -> Self {
-        Self::Unary(Box::new(expr))
+    pub fn unary(op: UnaryOp, right: Spanned<Expr>) -> Self {
+        Self::Unary(Box::new(UnaryExpr { op, right }))
     }
 
     pub fn eq_wo_spans(&self, other: &Expr) -> bool {

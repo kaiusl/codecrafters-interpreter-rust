@@ -8,7 +8,6 @@ fn test(input: &str, expected: Expr) {
     let ast = parser.parse().unwrap();
 
     if ast.item.eq_wo_spans(&expected) {
-        
     } else {
         assert_eq!(ast.item, expected);
     }
@@ -26,18 +25,11 @@ impl Expr {
     }
 
     fn binaryt(left: Expr, op: BinaryOp, right: Expr) -> Self {
-        Self::binary(BinaryExpr {
-            left: Spanned::wo_span(left),
-            op,
-            right: Spanned::wo_span(right),
-        })
+        Self::binary(Spanned::wo_span(left), op, Spanned::wo_span(right))
     }
 
     fn unaryt(op: UnaryOp, right: Expr) -> Self {
-        Self::unary(UnaryExpr {
-            op,
-            right: Spanned::wo_span(right),
-        })
+        Self::unary(op, Spanned::wo_span(right))
     }
 }
 
