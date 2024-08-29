@@ -71,12 +71,11 @@ impl<'a> Parser<'a> {
             errors: vec![],
         }
     }
-
-    pub fn parse(&mut self) -> Result<Expr, ParserError<'a>> {
+    pub fn parse(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         self.parse_equality()
     }
 
-    fn parse_equality(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_equality(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         let mut expr = self.parse_comparison()?;
 
         while let Some(token) = self
@@ -87,18 +86,18 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_comparison()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
+            let exprkind = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
                 right,
             }));
-            expr = Expr::new(exprkind, span);
+            expr = Spanned::new(exprkind, span);
         }
 
         Ok(expr)
     }
 
-    fn parse_comparison(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_comparison(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         let mut expr = self.parse_term()?;
 
         while let Some(token) = self
@@ -109,18 +108,18 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_term()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
+            let exprkind = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
                 right,
             }));
-            expr = Expr::new(exprkind, span);
+            expr = Spanned::new(exprkind, span);
         }
 
         Ok(expr)
     }
 
-    fn parse_term(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_term(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         let mut expr = self.parse_factor()?;
 
         while let Some(token) = self
@@ -131,18 +130,18 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_factor()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
+            let exprkind = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
                 right,
             }));
-            expr = Expr::new(exprkind, span);
+            expr = Spanned::new(exprkind, span);
         }
 
         Ok(expr)
     }
 
-    fn parse_factor(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_factor(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         let mut expr = self.parse_unary()?;
 
         while let Some(token) = self
@@ -153,18 +152,18 @@ impl<'a> Parser<'a> {
             let op = BinaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
             let span = token.span.combine(&right.span).combine(&expr.span);
-            let exprkind = ExprKind::Binary(Box::new(BinaryExpr {
+            let exprkind = Expr::Binary(Box::new(BinaryExpr {
                 left: expr,
                 op,
                 right,
             }));
-            expr = Expr::new(exprkind, span);
+            expr = Spanned::new(exprkind, span);
         }
 
         Ok(expr)
     }
 
-    fn parse_unary(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_unary(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         if let Some(token) = self
             .lexer
             .next_if(|tok| matches!(tok, Token::Bang | Token::Minus))
@@ -173,14 +172,14 @@ impl<'a> Parser<'a> {
             let op = UnaryOp::try_from_token(&token).unwrap();
             let right = self.parse_unary()?;
             let span = token.span.combine(&right.span);
-            let expr = ExprKind::Unary(Box::new(UnaryExpr { op, right }));
-            return Ok(Expr::new(expr, span));
+            let expr = Expr::Unary(Box::new(UnaryExpr { op, right }));
+            return Ok(Spanned::new(expr, span));
         }
 
         self.parse_primary()
     }
 
-    fn parse_primary(&mut self) -> Result<Expr, ParserError<'a>> {
+    fn parse_primary(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         let Some(Ok(token)) = self.lexer.next_if(|tok| {
             matches!(
                 tok,
@@ -220,17 +219,18 @@ impl<'a> Parser<'a> {
             return Err(ParserError::MissingItem(err));
         };
         match token.item {
-            Token::Number { value, .. } => Ok(Expr::new(ExprKind::Number(value), token.span)),
+            Token::Number { value, .. } => Ok(Spanned::new(Expr::Number(value), token.span)),
             Token::String { value, .. } => {
-                Ok(Expr::new(ExprKind::String(value.to_string()), token.span))
+                Ok(Spanned::new(Expr::String(value.to_string()), token.span))
             }
-            Token::Keyword(Keyword::True) => Ok(Expr::new(ExprKind::Bool(true), token.span)),
-            Token::Keyword(Keyword::False) => Ok(Expr::new(ExprKind::Bool(false), token.span)),
-            Token::Keyword(Keyword::Nil) => Ok(Expr::new(ExprKind::Nil, token.span)),
+            Token::Keyword(Keyword::True) => Ok(Spanned::new(Expr::Bool(true), token.span)),
+            Token::Keyword(Keyword::False) => Ok(Spanned::new(Expr::Bool(false), token.span)),
+            Token::Keyword(Keyword::Nil) => Ok(Spanned::new(Expr::Nil, token.span)),
             Token::LParen => {
+                let lparen = token;
                 let expr = self.parse()?;
-                if let Some(Ok(_)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen)) {
-                } else {
+                let Some(Ok(rparen)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen))
+                else {
                     let peek = self.lexer.peek();
 
                     let end = if let Some(Ok(token)) = peek {
@@ -241,15 +241,19 @@ impl<'a> Parser<'a> {
 
                     let err = MissingItemError::new(
                         self.input,
-                        token.span.line,
+                        lparen.span.line,
                         MissingItemLocation::Token(Token::RParen),
-                        (token.span.start..end).into(),
+                        (lparen.span.start..end).into(),
                         "Expect ')' after expression.",
                     );
                     return Err(ParserError::MissingItem(err));
-                }
-                let span = expr.span.clone();
-                Ok(Expr::new(ExprKind::Group(Box::new(expr)), span))
+                };
+                let span = expr
+                    .span
+                    .clone()
+                    .combine(&lparen.span)
+                    .combine(&rparen.span);
+                Ok(Spanned::new(Expr::Group(Box::new(expr)), span))
             }
             _ => unreachable!(),
         }
@@ -281,54 +285,36 @@ impl<'a> Parser<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Expr {
-    pub kind: ExprKind,
-    pub span: Span,
-}
-
-impl Expr {
-    pub fn new(kind: ExprKind, span: Span) -> Self {
-        Self { kind, span }
-    }
-}
-
-impl fmt::Display for Expr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ExprKind {
+pub enum Expr {
     Binary(Box<BinaryExpr>),
     Unary(Box<UnaryExpr>),
-    Group(Box<Expr>),
+    Group(Box<Spanned<Expr>>),
     String(String),
     Number(f64),
     Bool(bool),
     Nil,
 }
 
-impl fmt::Display for ExprKind {
+impl fmt::Display for Expr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExprKind::Binary(expr) => write!(f, "({})", expr),
-            ExprKind::Unary(expr) => write!(f, "({})", expr),
-            ExprKind::Group(expr) => write!(f, "(group {})", expr),
-            ExprKind::String(s) => write!(f, "{}", s),
-            ExprKind::Number(n) if n.fract() == 0.0 => write!(f, "{}.0", n),
-            ExprKind::Number(n) => write!(f, "{}", n),
-            ExprKind::Bool(b) => write!(f, "{}", b),
-            ExprKind::Nil => write!(f, "nil"),
+            Expr::Binary(expr) => write!(f, "({})", expr),
+            Expr::Unary(expr) => write!(f, "({})", expr),
+            Expr::Group(expr) => write!(f, "(group {})", expr),
+            Expr::String(s) => write!(f, "{}", s),
+            Expr::Number(n) if n.fract() == 0.0 => write!(f, "{}.0", n),
+            Expr::Number(n) => write!(f, "{}", n),
+            Expr::Bool(b) => write!(f, "{}", b),
+            Expr::Nil => write!(f, "nil"),
         }
     }
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct BinaryExpr {
-    pub left: Expr,
+    pub left: Spanned<Expr>,
     pub op: BinaryOp,
-    pub right: Expr,
+    pub right: Spanned<Expr>,
 }
 
 impl fmt::Display for BinaryExpr {
@@ -389,7 +375,7 @@ impl fmt::Display for BinaryOp {
 #[derive(Debug, PartialEq, Clone)]
 pub struct UnaryExpr {
     pub op: UnaryOp,
-    pub right: Expr,
+    pub right: Spanned<Expr>,
 }
 
 impl fmt::Display for UnaryExpr {

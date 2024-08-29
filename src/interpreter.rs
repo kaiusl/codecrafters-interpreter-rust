@@ -1,9 +1,7 @@
 use std::fmt;
 
-use crate::lexer::{Lexer, Span};
-use crate::parser::{
-    BinaryExpr, BinaryOp, Expr, ExprKind, Parser, ParserError, UnaryExpr, UnaryOp,
-};
+use crate::lexer::{Lexer, Span, Spanned};
+use crate::parser::{BinaryExpr, BinaryOp, Expr, Parser, ParserError, UnaryExpr, UnaryOp};
 use miette::Result;
 
 use self::error::RuntimeError;
@@ -18,7 +16,7 @@ pub fn eval(s: &str) -> Result<Result<Object>, ParserError<'_>> {
 
 #[derive(Debug, Clone)]
 struct Interpreter<'a> {
-    ast: Option<Expr>,
+    ast: Option<Spanned<Expr>>,
     input: &'a str,
 }
 
@@ -33,112 +31,83 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    pub fn new(ast: Expr, input: &'a str) -> Self {
-        Self {
-            ast: Some(ast),
-            input,
-        }
-    }
-
     pub fn eval(&mut self) -> Result<Object> {
         Self::eval_expr(self.ast.take().unwrap())
-            .map(|o| o.kind)
+            .map(|o| o.item)
             .map_err(|e| e.add_source(self.input.to_string()).into())
     }
 
-    fn eval_expr(expr: Expr) -> Result<ObjectInternal, RuntimeError> {
-        match expr.kind {
-            ExprKind::Binary(inner) => Self::eval_binary_expr(*inner, expr.span),
-            ExprKind::Unary(inner) => Self::eval_unary_expr(*inner, expr.span),
-            ExprKind::Group(inner) => Self::eval_expr(*inner),
-            ExprKind::String(s) => Ok(ObjectInternal::new(Object::String(s), expr.span)),
-            ExprKind::Number(n) => Ok(ObjectInternal::new(Object::Number(n), expr.span)),
-            ExprKind::Bool(b) => Ok(ObjectInternal::new(Object::Bool(b), expr.span)),
-            ExprKind::Nil => Ok(ObjectInternal::new(Object::Nil, expr.span)),
+    fn eval_expr(expr: Spanned<Expr>) -> Result<Spanned<Object>, RuntimeError> {
+        match expr.item {
+            Expr::Binary(inner) => Self::eval_binary_expr(*inner, expr.span),
+            Expr::Unary(inner) => Self::eval_unary_expr(*inner, expr.span),
+            Expr::Group(inner) => Self::eval_expr(*inner),
+            Expr::String(s) => Ok(Spanned::new(Object::String(s), expr.span)),
+            Expr::Number(n) => Ok(Spanned::new(Object::Number(n), expr.span)),
+            Expr::Bool(b) => Ok(Spanned::new(Object::Bool(b), expr.span)),
+            Expr::Nil => Ok(Spanned::new(Object::Nil, expr.span)),
         }
     }
 
-    fn eval_unary_expr(expr: UnaryExpr, span: Span) -> Result<ObjectInternal, RuntimeError> {
+    fn eval_unary_expr(expr: UnaryExpr, span: Span) -> Result<Spanned<Object>, RuntimeError> {
         let UnaryExpr { op, right } = expr;
 
         let right = Self::eval_expr(right)?;
         match op {
-            UnaryOp::Neg => match right.kind {
-                Object::Number(n) => Ok(ObjectInternal::new(Object::Number(-n), span)),
+            UnaryOp::Neg => match right.item {
+                Object::Number(n) => Ok(Spanned::new(Object::Number(-n), span)),
                 _ => Err(RuntimeError::operand_must_be_a_number(right.span)),
             },
-            UnaryOp::Not => Ok(ObjectInternal::new(Object::Bool(!right.is_truthy()), span)),
+            UnaryOp::Not => Ok(Spanned::new(Object::Bool(!right.is_truthy()), span)),
         }
     }
 
-    fn eval_binary_expr(expr: BinaryExpr, span: Span) -> Result<ObjectInternal, RuntimeError> {
+    fn eval_binary_expr(expr: BinaryExpr, span: Span) -> Result<Spanned<Object>, RuntimeError> {
         let BinaryExpr { left, op, right } = expr;
 
         let fail_must_be_numbers = || Err(RuntimeError::operands_must_be_numbers(span.clone()));
 
         let left = Self::eval_expr(left)?;
         let right = Self::eval_expr(right)?;
-        let kind = match op {
-            BinaryOp::Add => match (left.kind, right.kind) {
+        let item = match op {
+            BinaryOp::Add => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
                 (Object::String(l), Object::String(r)) => Object::String(l + &r),
                 _ => return Err(RuntimeError::operands_must_be_strings_or_numbers(span)),
             },
-            BinaryOp::Sub => match (left.kind, right.kind) {
+            BinaryOp::Sub => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l - r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Mul => match (left.kind, right.kind) {
+            BinaryOp::Mul => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l * r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Div => match (left.kind, right.kind) {
+            BinaryOp::Div => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Eq => Object::Bool(left.kind == right.kind),
-            BinaryOp::NotEq => Object::Bool(left.kind != right.kind),
-            BinaryOp::Lt => match (left.kind, right.kind) {
+            BinaryOp::Eq => Object::Bool(left.item == right.item),
+            BinaryOp::NotEq => Object::Bool(left.item != right.item),
+            BinaryOp::Lt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::Gt => match (left.kind, right.kind) {
+            BinaryOp::Gt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::LtEq => match (left.kind, right.kind) {
+            BinaryOp::LtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
                 _ => return fail_must_be_numbers(),
             },
-            BinaryOp::GtEq => match (left.kind, right.kind) {
+            BinaryOp::GtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
                 _ => return fail_must_be_numbers(),
             },
         };
 
-        Ok(ObjectInternal::new(kind, span))
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct ObjectInternal {
-    kind: Object,
-    span: Span,
-}
-
-impl ObjectInternal {
-    pub fn new(kind: Object, span: Span) -> Self {
-        Self { kind, span }
-    }
-
-    pub fn is_truthy(&self) -> bool {
-        self.kind.is_truthy()
-    }
-}
-
-impl fmt::Display for ObjectInternal {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
+        Ok(Spanned::new(item, span))
     }
 }
 

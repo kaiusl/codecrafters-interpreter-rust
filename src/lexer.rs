@@ -59,6 +59,15 @@ impl<T> ops::DerefMut for Spanned<T> {
     }
 }
 
+impl<T> fmt::Display for Spanned<T>
+where
+    T: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.item)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Chars<'a> {
     input: &'a str,
