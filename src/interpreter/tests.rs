@@ -4,7 +4,7 @@ use super::*;
 
 fn test_eval(input: &str, expected: Object) {
     let result = super::eval(input).unwrap().unwrap();
-    assert_eq!(result, expected);
+    assert_eq!(result.item, expected);
 }
 
 #[test]
@@ -51,4 +51,11 @@ fn test_equality_ops() {
 #[case("1 - true")]
 fn test_unary_errors(#[case] input: &str) {
     super::eval(input).unwrap().unwrap();
+}
+
+
+#[test]
+fn test_print() {
+    super::interpret("print 10;").unwrap().unwrap();
+    super::interpret("print \"abc\" + \"def\";").unwrap().unwrap();
 }

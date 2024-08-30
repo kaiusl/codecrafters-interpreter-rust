@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::lexer::{Lexer, Span, Spanned};
-use crate::parser::{BinaryExpr, BinaryOp, Expr, Parser, ParserError, UnaryExpr, UnaryOp};
+use crate::parser::{BinaryExpr, BinaryOp, Expr, Parser, ParserError, Stmt, UnaryExpr, UnaryOp};
 use miette::Result;
 
 use self::error::RuntimeError;
@@ -10,13 +10,21 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-pub fn eval(s: &str) -> Result<Result<Object>, ParserError<'_>> {
-    Ok(Interpreter::from_str(s)?.eval())
+pub fn interpret(input: &str) -> Result<Result<()>, ParserError<'_>> {
+    Ok(Interpreter::from_str(input)?.eval())
+}
+
+pub fn eval(input: &str) -> Result<Result<Spanned<Object>>, ParserError<'_>> {
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+    let ast = parser.parse_expr()?;
+
+    Ok(Interpreter::eval_expr(ast).map_err(|err| err.add_source(input.to_string()).into()))
 }
 
 #[derive(Debug, Clone)]
 struct Interpreter<'a> {
-    ast: Option<Spanned<Expr>>,
+    ast: Vec<Spanned<Stmt>>,
     input: &'a str,
 }
 
@@ -25,16 +33,29 @@ impl<'a> Interpreter<'a> {
         let lexer = Lexer::new(s);
         let mut parser = Parser::new(lexer);
         let ast = parser.parse()?;
-        Ok(Self {
-            ast: Some(ast),
-            input: s,
-        })
+        Ok(Self { ast, input: s })
     }
 
-    pub fn eval(&mut self) -> Result<Object> {
-        Self::eval_expr(self.ast.take().unwrap())
-            .map(|o| o.item)
-            .map_err(|e| e.add_source(self.input.to_string()).into())
+    pub fn eval(&mut self) -> Result<()> {
+        for stmt in std::mem::take(&mut self.ast) {
+            self.eval_stmt(stmt)?;
+        }
+
+        Ok(())
+    }
+
+    fn eval_stmt(&mut self, stmt: Spanned<Stmt>) -> Result<(), RuntimeError> {
+        match stmt.item {
+            Stmt::Expr(expr) => {
+                Self::eval_expr(expr)?;
+            }
+            Stmt::Print(expr) => {
+                let value = Self::eval_expr(expr)?;
+                println!("{}", value);
+            }
+        }
+
+        Ok(())
     }
 
     fn eval_expr(expr: Spanned<Expr>) -> Result<Spanned<Object>, RuntimeError> {

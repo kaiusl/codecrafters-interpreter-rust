@@ -35,12 +35,23 @@ impl<'a> PeekableLexer<'a> {
         F: Fn(&Token<'a>) -> bool,
     {
         if let Some(peeked) = self.peek().and_then(|res| res.as_ref().ok()) {
-            if f(&peeked) {
+            if f(peeked) {
                 self.line = self.lexer.line();
                 return self.peeked.take();
             }
         }
         None
+    }
+
+    fn is_next<F>(&mut self, f: F) -> bool
+    where
+        F: Fn(&Token<'a>) -> bool,
+    {
+        if let Some(peeked) = self.peek().and_then(|res| res.as_ref().ok()) {
+            f(peeked)
+        } else {
+            false
+        }
     }
 
     fn line(&self) -> usize {
@@ -77,7 +88,51 @@ impl<'a> Parser<'a> {
             errors: vec![],
         }
     }
-    pub fn parse(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
+    pub fn parse(&mut self) -> Result<Vec<Spanned<Stmt>>, ParserError<'a>> {
+        let mut stmts = Vec::new();
+
+        while self.lexer.is_next(|tok| !matches!(tok, Token::Eof)) {
+            match self.parse_stmt() {
+                Ok(stmt) => stmts.push(stmt),
+                Err(err) => {
+                    self.errors.push(err.clone());
+                    // TODO: synchronize
+                    return Err(err);
+                }
+            }
+        }
+
+        Ok(stmts)
+    }
+
+    pub fn parse_stmt(&mut self) -> Result<Spanned<Stmt>, ParserError<'a>> {
+        if let Some(token) = self
+            .lexer
+            .next_if(|tok| matches!(tok, Token::Keyword(Keyword::Print)))
+        {
+            let token = token?;
+            let expr = self.parse_expr()?;
+            let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon))
+            else {
+                todo!("handle expected ; error")
+            };
+
+            let span = token.span.combine(&expr.span).combine(&semicolon.span);
+            let stmt = Stmt::Print(expr);
+            Ok(Spanned::new(stmt, span))
+        } else {
+            let expr = self.parse_expr()?;
+            let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon))
+            else {
+                todo!("handle expected ; error")
+            };
+            let span = expr.span.combine(&semicolon.span);
+            let stmt = Stmt::Expr(expr);
+            Ok(Spanned::new(stmt, span))
+        }
+    }
+
+    pub fn parse_expr(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
         self.parse_equality()
     }
 
@@ -245,7 +300,7 @@ impl<'a> Parser<'a> {
             ParserError::MissingItem(err)
         }
 
-        let inner_expr = self.parse()?;
+        let inner_expr = self.parse_expr()?;
 
         let Some(Ok(rparen)) = self.lexer.next_if(|tok| matches!(tok, Token::RParen)) else {
             return Err(error_no_rparen(self, lparen));
@@ -280,6 +335,21 @@ impl<'a> Parser<'a> {
             if tok.item == Token::Semicolon {
                 return;
             }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Stmt {
+    Expr(Spanned<Expr>),
+    Print(Spanned<Expr>),
+}
+
+impl fmt::Display for Stmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Stmt::Expr(expr) => write!(f, "{};", expr),
+            Stmt::Print(expr) => write!(f, "print {};", expr),
         }
     }
 }

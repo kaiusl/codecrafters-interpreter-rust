@@ -54,7 +54,11 @@ fn main() {
             let mut parser = parser::Parser::new(lexer);
             let ast = parser.parse();
             match ast {
-                Ok(ast) => println!("{}", ast),
+                Ok(ast) => {
+                    for stmt in ast {
+                        println!("{}", stmt);
+                    }
+                }
                 Err(err) => {
                     eprintln!("{}", err);
                     std::process::exit(65);
@@ -69,6 +73,26 @@ fn main() {
 
             match interpreter::eval(&file_contents) {
                 Ok(Ok(result)) => println!("{}", result),
+                Ok(Err(err)) => {
+                    // runtime error
+                    eprintln!("{}", err);
+                    std::process::exit(70);
+                }
+                Err(err) => {
+                    // lexer/parser error
+                    eprintln!("{}", err);
+                    std::process::exit(65);
+                }
+            }
+        }
+        "run" => {
+            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+                eprintln!("Failed to read file {}", filename);
+                String::new()
+            });
+            let result = interpreter::interpret(&file_contents);
+            match result {
+                Ok(Ok(_)) => {},
                 Ok(Err(err)) => {
                     // runtime error
                     eprintln!("{}", err);

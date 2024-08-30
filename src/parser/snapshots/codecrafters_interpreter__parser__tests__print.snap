@@ -1,0 +1,25 @@
+---
+source: src/parser/tests.rs
+expression: ast
+---
+[
+    Spanned {
+        item: Print(
+            Spanned {
+                item: Number(
+                    10.0,
+                ),
+                span: Span {
+                    line: 1,
+                    start: 6,
+                    end: 8,
+                },
+            },
+        ),
+        span: Span {
+            line: 1,
+            start: 0,
+            end: 9,
+        },
+    },
+]
