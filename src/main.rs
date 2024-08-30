@@ -68,7 +68,9 @@ fn main() {
             });
 
             match interpreter::eval(&file_contents) {
-                Ok(Ok(result)) => println!("{}", result),
+                Ok(Ok(_)) => {
+                    // interpreter prints the result itselt
+                }
                 Ok(Err(err)) => {
                     // runtime error
                     eprintln!("{}", err);
