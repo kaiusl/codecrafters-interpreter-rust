@@ -88,48 +88,132 @@ impl<'a> Parser<'a> {
             errors: vec![],
         }
     }
+
+    pub fn from_str(input: &'a str) -> Self {
+        Self::new(Lexer::new(input))
+    }
+
     pub fn parse(&mut self) -> Result<Vec<Spanned<Stmt>>, ParserError<'a>> {
         let mut stmts = Vec::new();
 
         while self.lexer.is_next(|tok| !matches!(tok, Token::Eof)) {
-            match self.parse_stmt() {
-                Ok(stmt) => stmts.push(stmt),
-                Err(err) => {
-                    self.errors.push(err.clone());
-                    // TODO: synchronize
-                    return Err(err);
-                }
+            if let Some(stmt) = self.parse_declaration() {
+                stmts.push(stmt)
             }
         }
 
         Ok(stmts)
     }
 
+    pub fn parse_declaration(&mut self) -> Option<Spanned<Stmt>> {
+        fn on_parse_error<'a>(s: &mut Parser<'a>, error: ParserError<'a>) {
+            s.errors.push(error);
+            s.synchronize();
+        }
+
+        let Some(Ok(token)) = self
+            .lexer
+            .next_if(|tok| matches!(tok, Token::Keyword(Keyword::Var)))
+        else {
+            return match self.parse_stmt() {
+                Ok(stmt) => Some(stmt),
+                Err(err) => {
+                    on_parse_error(self, err);
+                    None
+                }
+            };
+        };
+
+        let result = match token.item {
+            Token::Keyword(Keyword::Var) => self.parse_var_stmt(token),
+            _ => unreachable!(),
+        };
+
+        match result {
+            Ok(stmt) => Some(stmt),
+            Err(err) => {
+                on_parse_error(self, err);
+                None
+            }
+        }
+    }
+
     pub fn parse_stmt(&mut self) -> Result<Spanned<Stmt>, ParserError<'a>> {
-        if let Some(token) = self
+        let Some(Ok(token)) = self
             .lexer
             .next_if(|tok| matches!(tok, Token::Keyword(Keyword::Print)))
-        {
-            let token = token?;
-            let expr = self.parse_expr()?;
-            let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon))
-            else {
-                todo!("handle expected ; error")
-            };
+        else {
+            return self.parse_expr_stmt();
+        };
 
-            let span = token.span.combine(&expr.span).combine(&semicolon.span);
-            let stmt = Stmt::Print(expr);
-            Ok(Spanned::new(stmt, span))
-        } else {
-            let expr = self.parse_expr()?;
-            let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon))
-            else {
-                todo!("handle expected ; error")
-            };
-            let span = expr.span.combine(&semicolon.span);
-            let stmt = Stmt::Expr(expr);
-            Ok(Spanned::new(stmt, span))
+        match token.item {
+            Token::Keyword(Keyword::Print) => self.parse_print_stmt(token),
+            _ => unreachable!(),
         }
+    }
+
+    fn parse_print_stmt(
+        &mut self,
+        print_kw: Spanned<Token<'a>>,
+    ) -> Result<Spanned<Stmt>, ParserError<'a>> {
+        debug_assert!(matches!(print_kw.item, Token::Keyword(Keyword::Print)));
+
+        let expr = self.parse_expr()?;
+        let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon)) else {
+            todo!("handle expected ; error")
+        };
+
+        let span = print_kw.span.combine(&expr.span).combine(&semicolon.span);
+        let stmt = Stmt::Print(expr);
+        Ok(Spanned::new(stmt, span))
+    }
+
+    fn parse_var_stmt(
+        &mut self,
+        var_kw: Spanned<Token<'a>>,
+    ) -> Result<Spanned<Stmt>, ParserError<'a>> {
+        debug_assert!(matches!(var_kw.item, Token::Keyword(Keyword::Var)));
+
+        let Some(Ok(ident)) = self.lexer.next_if(|tok| matches!(tok, Token::Ident(_))) else {
+            todo!("handle expected ident error")
+        };
+
+        let Some(Ok(eq_or_semicolon)) = self
+            .lexer
+            .next_if(|tok| matches!(tok, Token::Eq | Token::Semicolon))
+        else {
+            todo!("handle expected = or ; error")
+        };
+
+        let ident = Spanned::new(ident.item.try_into_ident().unwrap().to_string(), ident.span);
+        let (expr, semicolon) = match eq_or_semicolon.item {
+            Token::Eq => {
+                let expr = self.parse_expr()?;
+                let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon))
+                else {
+                    todo!("handle expected ; error")
+                };
+
+                (Some(expr), semicolon)
+            }
+            Token::Semicolon => (None, eq_or_semicolon),
+            _ => unreachable!(),
+        };
+
+        let span = var_kw.span.combine(&semicolon.span);
+        let var = VarDeclaration { ident, expr };
+        let stmt = Stmt::Var(var);
+        Ok(Spanned::new(stmt, span))
+    }
+
+    fn parse_expr_stmt(&mut self) -> Result<Spanned<Stmt>, ParserError<'a>> {
+        let expr = self.parse_expr()?;
+        let Some(Ok(semicolon)) = self.lexer.next_if(|tok| matches!(tok, Token::Semicolon)) else {
+            todo!("handle expected ; error")
+        };
+        let span = expr.span.combine(&semicolon.span);
+        let stmt = Stmt::Expr(expr);
+        Ok(Spanned::new(stmt, span))
     }
 
     pub fn parse_expr(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
@@ -260,6 +344,7 @@ impl<'a> Parser<'a> {
                     | Token::Keyword(Keyword::False)
                     | Token::Keyword(Keyword::Nil)
                     | Token::LParen
+                    | Token::Ident(_)
             )
         }) else {
             return Err(error_unexpected_token(self));
@@ -274,6 +359,10 @@ impl<'a> Parser<'a> {
             Token::Keyword(Keyword::False) => Ok(Spanned::new(Expr::Bool(false), token.span)),
             Token::Keyword(Keyword::Nil) => Ok(Spanned::new(Expr::Nil, token.span)),
             Token::LParen => self.parse_group(token),
+            Token::Ident(ident) => Ok(Spanned::new(
+                Expr::GlobalVariable(ident.to_string()),
+                token.span,
+            )),
             _ => unreachable!(),
         }
     }
@@ -343,6 +432,7 @@ impl<'a> Parser<'a> {
 pub enum Stmt {
     Expr(Spanned<Expr>),
     Print(Spanned<Expr>),
+    Var(VarDeclaration),
 }
 
 impl fmt::Display for Stmt {
@@ -350,6 +440,23 @@ impl fmt::Display for Stmt {
         match self {
             Stmt::Expr(expr) => write!(f, "{};", expr),
             Stmt::Print(expr) => write!(f, "print {};", expr),
+            Stmt::Var(var) => write!(f, "{}", var),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct VarDeclaration {
+    pub ident: Spanned<String>,
+    pub expr: Option<Spanned<Expr>>,
+}
+
+impl fmt::Display for VarDeclaration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(expr) = &self.expr {
+            write!(f, "var {} = {};", self.ident, expr)
+        } else {
+            write!(f, "var {};", self.ident)
         }
     }
 }
@@ -363,6 +470,7 @@ pub enum Expr {
     Number(f64),
     Bool(bool),
     Nil,
+    GlobalVariable(String),
 }
 
 impl Expr {
@@ -403,6 +511,7 @@ impl fmt::Display for Expr {
             Expr::Number(n) => write!(f, "{}", n),
             Expr::Bool(b) => write!(f, "{}", b),
             Expr::Nil => write!(f, "nil"),
+            Expr::GlobalVariable(ident) => write!(f, "{}", ident),
         }
     }
 }

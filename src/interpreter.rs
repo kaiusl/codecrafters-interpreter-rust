@@ -53,6 +53,9 @@ impl<'a> Interpreter<'a> {
                 let value = Self::eval_expr(expr)?;
                 println!("{}", value);
             }
+            Stmt::Var(declaration) => {
+                todo!("Implement variable declaration")
+            }
         }
 
         Ok(())
@@ -67,6 +70,9 @@ impl<'a> Interpreter<'a> {
             Expr::Number(n) => Ok(Spanned::new(Object::Number(n), expr.span)),
             Expr::Bool(b) => Ok(Spanned::new(Object::Bool(b), expr.span)),
             Expr::Nil => Ok(Spanned::new(Object::Nil, expr.span)),
+            Expr::GlobalVariable(ident) => {
+                todo!("eval global variable")
+            },
         }
     }
 

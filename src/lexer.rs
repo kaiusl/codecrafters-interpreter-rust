@@ -428,6 +428,15 @@ impl<'a> Token<'a> {
     pub fn fmt_as_book(&self) -> BookTokenFmt<'_> {
         BookTokenFmt { token: self }
     }
+
+    #[must_use]
+    pub fn try_into_ident(self) -> Result<&'a str, Self> {
+        if let Self::Ident(v) = self {
+            Ok(v)
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl Keyword {

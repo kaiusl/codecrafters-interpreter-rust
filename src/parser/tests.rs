@@ -137,7 +137,6 @@ fn test_errors3() {
     }
 }
 
-
 #[test]
 fn test_print() {
     let lexer = Lexer::new("print 10;");
@@ -155,5 +154,13 @@ fn test_print2() {
     let ast = parser.parse().unwrap();
     assert_eq!("(+ asf bc);", ast[0].to_string());
 
+    insta::assert_debug_snapshot!(ast);
+}
+
+#[test]
+fn test_var() {
+    let mut parser = Parser::from_str("var a = 10; print a;");
+    let ast = parser.parse().unwrap();
+    assert_eq!("var a = 10.0;", ast[0].to_string());
     insta::assert_debug_snapshot!(ast);
 }
