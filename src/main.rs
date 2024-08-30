@@ -52,13 +52,9 @@ fn main() {
             });
             let lexer = Lexer::new(&file_contents);
             let mut parser = parser::Parser::new(lexer);
-            let ast = parser.parse();
+            let ast = parser.parse_expr();
             match ast {
-                Ok(ast) => {
-                    for stmt in ast {
-                        println!("{}", stmt);
-                    }
-                }
+                Ok(ast) => println!("{}", ast),
                 Err(err) => {
                     eprintln!("{}", err);
                     std::process::exit(65);
@@ -92,7 +88,7 @@ fn main() {
             });
             let result = interpreter::interpret(&file_contents);
             match result {
-                Ok(Ok(_)) => {},
+                Ok(Ok(_)) => {}
                 Ok(Err(err)) => {
                     // runtime error
                     eprintln!("{}", err);
