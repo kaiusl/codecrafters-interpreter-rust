@@ -93,7 +93,7 @@ impl<'a> Parser<'a> {
         Self::new(Lexer::new(input))
     }
 
-    pub fn parse(&mut self) -> Result<Vec<Spanned<Stmt>>, ParserError<'a>> {
+    pub fn parse(mut self) -> (Vec<Spanned<Stmt>>, Vec<ParserError<'a>>) {
         let mut stmts = Vec::new();
 
         while self.lexer.is_next(|tok| !matches!(tok, Token::Eof)) {
@@ -102,8 +102,9 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(stmts)
+        (stmts, self.errors)
     }
+
 
     pub fn parse_declaration(&mut self) -> Option<Spanned<Stmt>> {
         fn on_parse_error<'a>(s: &mut Parser<'a>, error: ParserError<'a>) {

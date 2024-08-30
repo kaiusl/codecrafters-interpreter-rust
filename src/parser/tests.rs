@@ -141,7 +141,9 @@ fn test_errors3() {
 fn test_print() {
     let lexer = Lexer::new("print 10;");
     let mut parser = Parser::new(lexer);
-    let ast = parser.parse().unwrap();
+    let (ast, errors) = parser.parse();
+
+    assert!(errors.is_empty());
     assert_eq!("print 10.0;", ast[0].to_string());
 
     insta::assert_debug_snapshot!(ast);
@@ -151,16 +153,29 @@ fn test_print() {
 fn test_print2() {
     let lexer = Lexer::new("\"asf\" + \"bc\";");
     let mut parser = Parser::new(lexer);
-    let ast = parser.parse().unwrap();
+    let (ast, errors) = parser.parse();
+    assert!(errors.is_empty());
     assert_eq!("(+ asf bc);", ast[0].to_string());
 
     insta::assert_debug_snapshot!(ast);
 }
 
 #[test]
+fn test_print4() {
+    let lexer = Lexer::new("print;");
+    let mut parser = Parser::new(lexer);
+    let (ast, errors) = parser.parse();
+
+    assert!(!errors.is_empty());
+    assert!(ast.is_empty());
+}
+
+#[test]
 fn test_var() {
     let mut parser = Parser::from_str("var a = 10; print a;");
-    let ast = parser.parse().unwrap();
+    let (ast, errors) = parser.parse();
+
+    assert!(errors.is_empty());
     assert_eq!("var a = 10.0;", ast[0].to_string());
     insta::assert_debug_snapshot!(ast);
 }

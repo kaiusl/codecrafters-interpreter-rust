@@ -13,7 +13,7 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-pub fn interpret(input: &str) -> Result<Result<()>, ParserError<'_>> {
+pub fn interpret(input: &str) -> Result<Result<()>, Vec<ParserError<'_>>> {
     Ok(Interpreter::from_str(input)?.eval())
 }
 
@@ -46,10 +46,14 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn from_str(s: &'a str) -> Result<Self, ParserError<'_>> {
+    pub fn from_str(s: &'a str) -> Result<Self, Vec<ParserError<'_>>> {
         let lexer = Lexer::new(s);
-        let mut parser = Parser::new(lexer);
-        let ast = parser.parse()?;
+        let parser = Parser::new(lexer);
+        let (ast, errors) = parser.parse();
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
         Ok(Self {
             ast,
             input: s,

@@ -98,7 +98,9 @@ fn main() {
                 }
                 Err(err) => {
                     // lexer/parser error
-                    eprintln!("{}", err);
+                    for err in err {
+                        eprintln!("{}", err);
+                    }
                     std::process::exit(65);
                 }
             }
