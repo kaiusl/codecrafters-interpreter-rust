@@ -71,35 +71,37 @@ where
 #[derive(Debug, Clone)]
 pub struct Chars<'a> {
     input: &'a str,
-    inner: std::iter::Peekable<std::iter::Enumerate<std::str::Chars<'a>>>,
+    inner: std::iter::Peekable<std::str::Chars<'a>>,
+    byte_index: usize,
 }
 
 impl<'a> Chars<'a> {
     pub fn new(input: &'a str) -> Self {
         Chars {
             input,
-            inner: input.chars().enumerate().peekable(),
+            inner: input.chars().peekable(),
+            byte_index: 0,
         }
     }
 
     #[inline]
     fn next_if_eq(&mut self, c: char) -> Option<(usize, char)> {
-        self.inner.next_if(|(_, next)| c == *next)
+        self.next_if(|next| c == next)
     }
 
     #[inline]
     fn next_if_not_eq(&mut self, c: char) -> Option<(usize, char)> {
-        self.inner.next_if(|(_, next)| c != *next)
+        self.next_if(|next| c != next)
     }
 
     #[inline]
-    fn peek(&mut self) -> Option<&(usize, char)> {
-        self.inner.peek()
+    fn peek(&mut self) -> Option<(usize, &char)> {
+        self.inner.peek().map(|c| (self.byte_index, c))
     }
 
     #[inline]
-    fn peek_if_eq(&mut self, c: char) -> Option<&(usize, char)> {
-        self.inner.peek().filter(|(_, next)| c == *next)
+    fn peek_if_eq(&mut self, c: char) -> Option<(usize, &char)> {
+        self.peek().filter(|(_, next)| c == **next)
     }
 
     #[inline]
@@ -107,7 +109,11 @@ impl<'a> Chars<'a> {
     where
         F: Fn(char) -> bool,
     {
-        self.inner.next_if(|(_, next)| f(*next))
+        self.inner.next_if(|next| f(*next)).map(|c| {
+            let result = (self.byte_index, c);
+            self.byte_index += c.len_utf8();
+            result
+        })
     }
 }
 
@@ -115,7 +121,11 @@ impl<'a> Iterator for Chars<'a> {
     type Item = (usize, char);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next()
+        self.inner.next().map(|c| {
+            let result = (self.byte_index, c);
+            self.byte_index += c.len_utf8();
+            result
+        })
     }
 }
 
@@ -198,7 +208,10 @@ impl<'a> Iterator for Lexer<'a> {
                     let mut end = i;
                     // TODO: support escape sequences
                     while let Some((i, c)) = self.chars.next_if_not_eq('"') {
-                        end = i;
+                        // i is the index to the first byte of character,
+                        // + c.len_utf8(), is the index to the first byte of next char
+                        // hence `end` is the index to the last byte of `c`
+                        end = i + c.len_utf8() - 1;
                         if c == '\n' {
                             self.line += 1;
                         }
@@ -237,8 +250,7 @@ impl<'a> Iterator for Lexer<'a> {
                             break 'decimal;
                         };
 
-                        let Some(c) = self.input.get(*i + 1..).and_then(|s| s.chars().next())
-                        else {
+                        let Some(c) = self.input.get(i + 1..).and_then(|s| s.chars().next()) else {
                             break 'decimal;
                         };
 
@@ -263,7 +275,9 @@ impl<'a> Iterator for Lexer<'a> {
                 c if c.is_ascii_alphabetic() || c == '_' => {
                     let start = i;
                     let mut end = i;
-                    while let Some((i, _)) = self.chars.next_if(|c| c.is_alphanumeric() || c == '_')
+                    while let Some((i, _)) = self
+                        .chars
+                        .next_if(|c| c.is_ascii_alphanumeric() || c == '_')
                     {
                         end = i;
                     }

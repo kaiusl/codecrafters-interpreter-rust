@@ -122,6 +122,25 @@ fn test_strings() {
 }
 
 #[test]
+fn test_non_ascii_strings() {
+    use Token as T;
+
+    let mut lexer = Lexer::new("\"hello ॐ\"");
+    let expected = [T::String {
+        lexeme: "\"hello ॐ\"",
+        value: "hello ॐ",
+    }];
+    check_tokens(&mut lexer, &expected);
+
+    let mut lexer = Lexer::new("\"hello ॐ€,\"");
+    let expected = [T::String {
+        lexeme: "\"hello ॐ€,\"",
+        value: "hello ॐ€,",
+    }];
+    check_tokens(&mut lexer, &expected);
+}
+
+#[test]
 fn test_numbers() {
     use Token as T;
 
