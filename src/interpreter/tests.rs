@@ -40,18 +40,18 @@ use super::*;
 //     test_eval("\"world\" == \"world\"", Object::Bool(true));
 // }
 
-// #[rstest]
-// #[should_panic(expected = "Operand must be a number")]
-// #[case("-\"fsa\"")]
-// #[should_panic(expected = "Operand must be a number")]
-// #[case("-true")]
-// #[should_panic(expected = "Operand must be a number")]
-// #[case("1 > -true")]
-// #[should_panic(expected = "Operands must be numbers")]
-// #[case("1 - true")]
-// fn test_unary_errors(#[case] input: &str) {
-//     super::eval(input).unwrap().unwrap();
-// }
+#[rstest]
+#[should_panic(expected = "Operand must be a number")]
+#[case("-\"fsa\"")]
+#[should_panic(expected = "Operand must be a number")]
+#[case("-true")]
+#[should_panic(expected = "Operand must be a number")]
+#[case("1 > -true")]
+#[should_panic(expected = "Operands must be numbers")]
+#[case("1 - true")]
+fn test_unary_errors(#[case] input: &str) {
+    super::eval(input).unwrap().unwrap();
+}
 
 #[test]
 fn test_print() {
@@ -68,6 +68,12 @@ fn test_global_var() {
         .unwrap()
         .unwrap();
     super::interpret("var aa = true; var aa = 3; print aa; print aa;")
-    .unwrap()
-    .unwrap();
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+#[should_panic(expected = "Undefined variable 'bb'")]
+fn test_undefined_variable() {
+    super::interpret("print bb;").unwrap().unwrap();
 }

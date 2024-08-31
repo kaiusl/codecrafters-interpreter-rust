@@ -6,37 +6,64 @@ use crate::lexer::Span;
 #[error("{msg}\n[line {line}]")]
 pub struct RuntimeError {
     #[source_code]
-    src: Cow<'static, str>,
+    src: Option<Cow<'static, str>>,
     line: usize,
     #[label("here")]
     span: miette::SourceSpan,
-    msg: &'static str,
+    msg: Cow<'static, str>,
 }
 
-impl RuntimeError {
-    pub fn new(msg: &'static str, src: impl Into<Cow<'static, str>>, span: Span) -> Self {
+pub struct RuntimeErrorBuilder {
+    msg: Option<Cow<'static, str>>,
+    line: Option<usize>,
+    span: Option<miette::SourceSpan>,
+    src: Option<Cow<'static, str>>,
+}
+
+impl RuntimeErrorBuilder {
+    pub fn new() -> Self {
         Self {
-            msg,
-            src: src.into(),
-            line: span.line,
-            span: (span.start..span.end).into(),
+            msg: None,
+            line: None,
+            span: None,
+            src: None,
         }
     }
 
-    pub fn operands_must_be_numbers(span: Span) -> Self {
-        Self::new("Operands must be numbers.", "", span)
+    pub fn operands_must_be_numbers() -> Self {
+        Self::new().msg("Operands must be numbers.")
     }
 
-    pub fn operands_must_be_strings_or_numbers(span: Span) -> Self {
-        Self::new("Operands must be two numbers or two strings.", "", span)
+    pub fn operands_must_be_strings_or_numbers() -> Self {
+        Self::new().msg("Operands must be two numbers or two strings.")
     }
 
-    pub fn operand_must_be_a_number(span: Span) -> Self {
-        Self::new("Operand must be a number.", "", span)
+    pub fn operand_must_be_a_number() -> Self {
+        Self::new().msg("Operand must be a number.")
     }
 
-    pub fn add_source(mut self, src: impl Into<Cow<'static, str>>) -> Self {
-        self.src = src.into();
+    pub fn msg(mut self, msg: impl Into<Cow<'static, str>>) -> Self {
+        self.msg = Some(msg.into());
         self
+    }
+
+    pub fn span(mut self, span: Span) -> Self {
+        self.line = Some(span.line);
+        self.span = Some(span.into());
+        self
+    }
+
+    pub fn src(mut self, src: impl Into<Cow<'static, str>>) -> Self {
+        self.src = Some(src.into());
+        self
+    }
+
+    pub fn build(self) -> RuntimeError {
+        RuntimeError {
+            src: self.src,
+            line: self.line.expect("line must be set"),
+            span: self.span.expect("span must be set"),
+            msg: self.msg.expect("msg must be set"),
+        }
     }
 }

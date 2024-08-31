@@ -33,6 +33,12 @@ impl Span {
     }
 }
 
+impl From<Span> for miette::SourceSpan {
+    fn from(span: Span) -> Self {
+        miette::SourceSpan::from(span.start..span.end)
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Spanned<T> {
     pub item: T,

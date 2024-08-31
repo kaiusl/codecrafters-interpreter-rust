@@ -7,7 +7,7 @@ use crate::parser::{
 };
 use miette::Result;
 
-use self::error::RuntimeError;
+use self::error::RuntimeErrorBuilder;
 
 mod error;
 #[cfg(test)]
@@ -41,7 +41,7 @@ impl<'a> Interpreter<'a> {
     pub fn new(ast: Vec<Spanned<Stmt>>, input: &'a str) -> Self {
         Self {
             ast,
-            input: "",
+            input,
             global_env: Env::new(),
         }
     }
@@ -63,13 +63,14 @@ impl<'a> Interpreter<'a> {
 
     pub fn eval(&mut self) -> Result<()> {
         for stmt in std::mem::take(&mut self.ast) {
-            self.eval_stmt(stmt)?;
+            self.eval_stmt(stmt)
+                .map_err(|err| err.src(self.input.to_string()).build())?;
         }
 
         Ok(())
     }
 
-    fn eval_stmt(&mut self, stmt: Spanned<Stmt>) -> Result<(), RuntimeError> {
+    fn eval_stmt(&mut self, stmt: Spanned<Stmt>) -> Result<(), RuntimeErrorBuilder> {
         match stmt.item {
             Stmt::Expr(expr) => {
                 self.eval_expr(expr)?;
@@ -92,7 +93,7 @@ impl<'a> Interpreter<'a> {
         Ok(())
     }
 
-    fn eval_expr(&mut self, expr: Spanned<Expr>) -> Result<Spanned<Object>, RuntimeError> {
+    fn eval_expr(&mut self, expr: Spanned<Expr>) -> Result<Spanned<Object>, RuntimeErrorBuilder> {
         match expr.item {
             Expr::Binary(inner) => self.eval_binary_expr(*inner, expr.span),
             Expr::Unary(inner) => self.eval_unary_expr(*inner, expr.span),
@@ -102,9 +103,12 @@ impl<'a> Interpreter<'a> {
             Expr::Bool(b) => Ok(Spanned::new(Object::Bool(b), expr.span)),
             Expr::Nil => Ok(Spanned::new(Object::Nil, expr.span)),
             Expr::GlobalVariable(ident) => {
-                let value = self.global_env.get(&ident, &expr.span)?;
-                // TODO: remove clone
-                Ok(Spanned::new(value.clone(), expr.span))
+                let value = self.global_env.get(&ident);
+                match value {
+                    // TODO: remove .clone()
+                    Ok(value) => Ok(Spanned::new(value.clone(), expr.span)),
+                    Err(err) => Err(err.span(expr.span)),
+                }
             }
         }
     }
@@ -113,14 +117,14 @@ impl<'a> Interpreter<'a> {
         &mut self,
         expr: UnaryExpr,
         span: Span,
-    ) -> Result<Spanned<Object>, RuntimeError> {
+    ) -> Result<Spanned<Object>, RuntimeErrorBuilder> {
         let UnaryExpr { op, right } = expr;
 
         let right = self.eval_expr(right)?;
         match op {
             UnaryOp::Neg => match right.item {
                 Object::Number(n) => Ok(Spanned::new(Object::Number(-n), span)),
-                _ => Err(RuntimeError::operand_must_be_a_number(right.span)),
+                _ => Err(RuntimeErrorBuilder::operand_must_be_a_number().span(span)),
             },
             UnaryOp::Not => Ok(Spanned::new(Object::Bool(!right.is_truthy()), span)),
         }
@@ -130,7 +134,7 @@ impl<'a> Interpreter<'a> {
         &mut self,
         expr: BinaryExpr,
         span: Span,
-    ) -> Result<Spanned<Object>, RuntimeError> {
+    ) -> Result<Spanned<Object>, RuntimeErrorBuilder> {
         let BinaryExpr { left, op, right } = expr;
 
         let left = self.eval_expr(left)?;
@@ -140,37 +144,41 @@ impl<'a> Interpreter<'a> {
             BinaryOp::Add => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l + r),
                 (Object::String(l), Object::String(r)) => Object::String(l + &r),
-                _ => return Err(RuntimeError::operands_must_be_strings_or_numbers(span)),
+                _ => {
+                    return Err(
+                        RuntimeErrorBuilder::operands_must_be_strings_or_numbers().span(span)
+                    )
+                }
             },
             BinaryOp::Sub => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l - r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::Mul => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l * r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::Div => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Number(l / r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::Eq => Object::Bool(left.item.eq_wo_span(&right.item)),
             BinaryOp::NotEq => Object::Bool(!left.item.eq_wo_span(&right.item)),
             BinaryOp::Lt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l < r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::Gt => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l > r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::LtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l <= r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
             BinaryOp::GtEq => match (left.item, right.item) {
                 (Object::Number(l), Object::Number(r)) => Object::Bool(l >= r),
-                _ => return Err(RuntimeError::operands_must_be_numbers(span)),
+                _ => return Err(RuntimeErrorBuilder::operands_must_be_numbers().span(span)),
             },
         };
 
@@ -190,11 +198,12 @@ impl Env {
         }
     }
 
-    pub fn get(&self, ident: &str, span: &Span) -> Result<&Object, RuntimeError> {
+    pub fn get(&self, ident: &str) -> Result<&Object, RuntimeErrorBuilder> {
         match self.values.get(ident) {
             Some(value) => Ok(value),
             None => {
-                todo!("handle undefined variable error")
+                let err = RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
+                Err(err)
             }
         }
     }
