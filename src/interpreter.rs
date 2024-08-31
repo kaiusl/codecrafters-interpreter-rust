@@ -115,8 +115,8 @@ impl<'a> Interpreter<'a> {
                 let span = expr.span;
                 let AssignmentExpr { ident, expr } = *assign;
                 let value = self.eval_expr(expr)?;
-                self.global_env.assign(ident.item, value.item)?;
-                Ok(Spanned::new(Object::Nil, span))
+                let value = self.global_env.assign(ident.item, value.item)?;
+                Ok(Spanned::new(value.clone(), span))
             }
         }
     }
