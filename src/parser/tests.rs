@@ -180,7 +180,6 @@ fn test_var() {
     insta::assert_debug_snapshot!(ast);
 }
 
-
 #[test]
 fn test_assignment() {
     let mut parser = Parser::from_str("var a; a = 10; print a;");
@@ -189,4 +188,3 @@ fn test_assignment() {
     assert!(errors.is_empty());
     insta::assert_debug_snapshot!(ast);
 }
-

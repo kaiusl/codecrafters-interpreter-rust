@@ -234,7 +234,17 @@ impl<'a> Parser<'a> {
                     let expr = Expr::assignment(ident, value);
                     Ok(Spanned::new(expr, span))
                 }
-                _ => todo!("handle error"),
+                _ => {
+                    let error = MissingItemError::new(
+                        self.input,
+                        self.lexer.line(),
+                        MissingItemLocation::Token(Token::Eq),
+                        target.span.into(),
+                        "Invalid assignment target.",
+                    );
+
+                    Err(ParserError::MissingItem(error))
+                }
             }
         } else {
             Ok(expr)
