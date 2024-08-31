@@ -3,7 +3,8 @@ use std::fmt;
 
 use crate::lexer::{Lexer, Span, Spanned};
 use crate::parser::{
-    BinaryExpr, BinaryOp, Expr, Parser, ParserError, Stmt, UnaryExpr, UnaryOp, VarDeclaration,
+    AssignmentExpr, BinaryExpr, BinaryOp, Expr, Parser, ParserError, Stmt, UnaryExpr, UnaryOp,
+    VarDeclaration,
 };
 use miette::Result;
 
@@ -110,7 +111,13 @@ impl<'a> Interpreter<'a> {
                     Err(err) => Err(err.span(expr.span)),
                 }
             }
-            Expr::Assignment(_) => todo!("assignment"),
+            Expr::Assignment(assign) => {
+                let span = expr.span;
+                let AssignmentExpr { ident, expr } = *assign;
+                let value = self.eval_expr(expr)?;
+                self.global_env.assign(ident.item, value.item)?;
+                Ok(Spanned::new(Object::Nil, span))
+            }
         }
     }
 
@@ -213,8 +220,18 @@ impl Env {
         self.values.insert(ident, value);
     }
 
-    pub fn declare(&mut self, ident: String) {
-        self.values.insert(ident, Object::Nil);
+    pub fn assign(&mut self, ident: String, value: Object) -> Result<&Object, RuntimeErrorBuilder> {
+        match self.values.entry(ident) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                entry.insert(value);
+                Ok(entry.into_mut())
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                let ident = entry.into_key();
+                let err = RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
+                Err(err)
+            }
+        }
     }
 }
 

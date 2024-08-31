@@ -77,3 +77,9 @@ fn test_global_var() {
 fn test_undefined_variable() {
     super::interpret("print bb;").unwrap().unwrap();
 }
+
+
+#[test]
+fn test_assignment() {
+    super::interpret("var bb = 10; bb = true; print bb;").unwrap().unwrap();
+}
