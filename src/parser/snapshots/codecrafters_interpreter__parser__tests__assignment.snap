@@ -1,0 +1,83 @@
+---
+source: src/parser/tests.rs
+expression: ast
+---
+[
+    Spanned {
+        item: Var(
+            VarDeclaration {
+                ident: Spanned {
+                    item: "a",
+                    span: Span {
+                        line: 1,
+                        start: 4,
+                        end: 5,
+                    },
+                },
+                expr: None,
+            },
+        ),
+        span: Span {
+            line: 1,
+            start: 0,
+            end: 6,
+        },
+    },
+    Spanned {
+        item: Expr(
+            Spanned {
+                item: Assignment(
+                    AssignmentExpr {
+                        ident: Spanned {
+                            item: "a",
+                            span: Span {
+                                line: 1,
+                                start: 7,
+                                end: 8,
+                            },
+                        },
+                        expr: Spanned {
+                            item: Number(
+                                10.0,
+                            ),
+                            span: Span {
+                                line: 1,
+                                start: 11,
+                                end: 13,
+                            },
+                        },
+                    },
+                ),
+                span: Span {
+                    line: 1,
+                    start: 7,
+                    end: 13,
+                },
+            },
+        ),
+        span: Span {
+            line: 1,
+            start: 7,
+            end: 14,
+        },
+    },
+    Spanned {
+        item: Print(
+            Spanned {
+                item: GlobalVariable(
+                    "a",
+                ),
+                span: Span {
+                    line: 1,
+                    start: 21,
+                    end: 22,
+                },
+            },
+        ),
+        span: Span {
+            line: 1,
+            start: 15,
+            end: 23,
+        },
+    },
+]

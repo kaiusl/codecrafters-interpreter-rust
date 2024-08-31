@@ -105,7 +105,6 @@ impl<'a> Parser<'a> {
         (stmts, self.errors)
     }
 
-
     pub fn parse_declaration(&mut self) -> Option<Spanned<Stmt>> {
         fn on_parse_error<'a>(s: &mut Parser<'a>, error: ParserError<'a>) {
             s.errors.push(error);
@@ -218,7 +217,28 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expr(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
-        self.parse_equality()
+        self.parse_assignment()
+    }
+
+    fn parse_assignment(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
+        let expr = self.parse_equality()?;
+
+        if let Some(Ok(eq)) = self.lexer.next_if(|tok| matches!(tok, Token::Eq)) {
+            let target = expr;
+            let value = self.parse_expr()?;
+
+            match &target.item {
+                Expr::GlobalVariable(ident) => {
+                    let span = target.span.combine(&value.span);
+                    let ident = Spanned::new(ident.to_string(), target.span);
+                    let expr = Expr::assignment(ident, value);
+                    Ok(Spanned::new(expr, span))
+                }
+                _ => todo!("handle error"),
+            }
+        } else {
+            Ok(expr)
+        }
     }
 
     fn parse_equality(&mut self) -> Result<Spanned<Expr>, ParserError<'a>> {
@@ -472,6 +492,7 @@ pub enum Expr {
     Bool(bool),
     Nil,
     GlobalVariable(String),
+    Assignment(Box<AssignmentExpr>),
 }
 
 impl Expr {
@@ -487,6 +508,10 @@ impl Expr {
         Self::Unary(Box::new(UnaryExpr { op, right }))
     }
 
+    pub fn assignment(ident: Spanned<String>, expr: Spanned<Expr>) -> Self {
+        Self::Assignment(Box::new(AssignmentExpr { ident, expr }))
+    }
+
     pub fn eq_wo_spans(&self, other: &Expr) -> bool {
         match (self, other) {
             (Expr::Binary(f0_self), Expr::Binary(f0_other)) => f0_self.eq_wo_spans(f0_other),
@@ -496,6 +521,10 @@ impl Expr {
             (Expr::Number(f0_self), Expr::Number(f0_other)) => f0_self.eq(f0_other),
             (Expr::Bool(f0_self), Expr::Bool(f0_other)) => f0_self.eq(f0_other),
             (Expr::Nil, Expr::Nil) => true,
+            (Expr::GlobalVariable(f0_self), Expr::GlobalVariable(f0_other)) => f0_self.eq(f0_other),
+            (Expr::Assignment(f0_self), Expr::Assignment(f0_other)) => {
+                f0_self.eq_wo_spans(f0_other)
+            }
             _unused => false,
         }
     }
@@ -513,7 +542,26 @@ impl fmt::Display for Expr {
             Expr::Bool(b) => write!(f, "{}", b),
             Expr::Nil => write!(f, "nil"),
             Expr::GlobalVariable(ident) => write!(f, "{}", ident),
+            Expr::Assignment(expr) => write!(f, "{}", expr),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct AssignmentExpr {
+    pub ident: Spanned<String>,
+    pub expr: Spanned<Expr>,
+}
+
+impl AssignmentExpr {
+    pub fn eq_wo_spans(&self, other: &AssignmentExpr) -> bool {
+        self.ident.eq(&other.ident) && self.expr.eq_wo_spans(&other.expr)
+    }
+}
+
+impl fmt::Display for AssignmentExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} = {};", self.ident, self.expr)
     }
 }
 

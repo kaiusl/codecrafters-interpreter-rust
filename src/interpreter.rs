@@ -110,6 +110,7 @@ impl<'a> Interpreter<'a> {
                     Err(err) => Err(err.span(expr.span)),
                 }
             }
+            Expr::Assignment(_) => todo!("assignment"),
         }
     }
 

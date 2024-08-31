@@ -179,3 +179,14 @@ fn test_var() {
     assert_eq!("var a = 10.0;", ast[0].to_string());
     insta::assert_debug_snapshot!(ast);
 }
+
+
+#[test]
+fn test_assignment() {
+    let mut parser = Parser::from_str("var a; a = 10; print a;");
+    let (ast, errors) = parser.parse();
+
+    assert!(errors.is_empty());
+    insta::assert_debug_snapshot!(ast);
+}
+
