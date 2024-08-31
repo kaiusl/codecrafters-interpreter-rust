@@ -197,3 +197,12 @@ fn test_block() {
     assert!(errors.is_empty());
     insta::assert_debug_snapshot!(ast);
 }
+
+#[test]
+fn test_block2() {
+    let mut parser = Parser::from_str("{ var aa = 10; print aa; } print aa;");
+    let (ast, errors) = parser.parse();
+
+    assert!(errors.is_empty());
+    insta::assert_debug_snapshot!(ast);
+}

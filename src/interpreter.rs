@@ -35,7 +35,7 @@ pub fn eval(input: &str) -> Result<Result<()>, ParserError<'_>> {
 struct Interpreter<'a> {
     ast: Vec<Spanned<Stmt>>,
     input: &'a str,
-    global_env: Env,
+    env: Env,
 }
 
 impl<'a> Interpreter<'a> {
@@ -43,7 +43,7 @@ impl<'a> Interpreter<'a> {
         Self {
             ast,
             input,
-            global_env: Env::new(),
+            env: Env::new(),
         }
     }
 
@@ -58,7 +58,7 @@ impl<'a> Interpreter<'a> {
         Ok(Self {
             ast,
             input: s,
-            global_env: Env::new(),
+            env: Env::new(),
         })
     }
 
@@ -87,9 +87,31 @@ impl<'a> Interpreter<'a> {
                     None => Spanned::new(Object::Nil, stmt.span),
                 };
 
-                self.global_env.set(ident.item, value.item);
+                self.env.set(ident.item, value.item);
             }
-            Stmt::Block(_) => todo!(),
+            Stmt::Block(stmts) => {
+                let env = Env::with_parent(std::mem::take(&mut self.env));
+                self.env = env;
+
+                let result = 'eval_stmts: {
+                    for stmt in stmts {
+                        if let Err(err) = self.eval_stmt(stmt) {
+                            break 'eval_stmts Err(err);
+                        }
+                    }
+                    Ok(())
+                };
+
+                // restore previous env
+                let prev_env = self
+                    .env
+                    .parent
+                    .take()
+                    .expect("expected parent env to exist when exiting block");
+                self.env = *prev_env;
+
+                return result;
+            }
         }
 
         Ok(())
@@ -105,7 +127,7 @@ impl<'a> Interpreter<'a> {
             Expr::Bool(b) => Ok(Spanned::new(Object::Bool(b), expr.span)),
             Expr::Nil => Ok(Spanned::new(Object::Nil, expr.span)),
             Expr::GlobalVariable(ident) => {
-                let value = self.global_env.get(&ident);
+                let value = self.env.get(&ident);
                 match value {
                     // TODO: remove .clone()
                     Ok(value) => Ok(Spanned::new(value.clone(), expr.span)),
@@ -116,7 +138,7 @@ impl<'a> Interpreter<'a> {
                 let span = expr.span;
                 let AssignmentExpr { ident, expr } = *assign;
                 let value = self.eval_expr(expr)?;
-                let value = self.global_env.assign(ident.item, value.item)?;
+                let value = self.env.assign(ident.item, value.item)?;
                 Ok(Spanned::new(value.clone(), span))
             }
         }
@@ -252,6 +274,12 @@ impl Env {
                 }
             }
         }
+    }
+}
+
+impl Default for Env {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

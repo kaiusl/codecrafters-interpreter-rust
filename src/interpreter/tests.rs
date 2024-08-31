@@ -78,8 +78,16 @@ fn test_undefined_variable() {
     super::interpret("print bb;").unwrap().unwrap();
 }
 
-
 #[test]
 fn test_assignment() {
-    super::interpret("var bb = 10; bb = true; print bb;").unwrap().unwrap();
+    super::interpret("var bb = 10; bb = true; print bb;")
+        .unwrap()
+        .unwrap();
+}
+
+#[test]
+fn test_blocks() {
+    super::interpret("var aa = 1; { var aa = 2; print aa; } print aa;")
+        .unwrap()
+        .unwrap();
 }
