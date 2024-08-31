@@ -89,6 +89,7 @@ impl<'a> Interpreter<'a> {
 
                 self.global_env.set(ident.item, value.item);
             }
+            Stmt::Block(_) => todo!(),
         }
 
         Ok(())

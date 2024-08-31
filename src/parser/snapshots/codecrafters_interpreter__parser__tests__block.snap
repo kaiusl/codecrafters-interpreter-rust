@@ -1,0 +1,98 @@
+---
+source: src/parser/tests.rs
+expression: ast
+---
+[
+    Spanned {
+        item: Var(
+            VarDeclaration {
+                ident: Spanned {
+                    item: "a",
+                    span: Span {
+                        line: 1,
+                        start: 4,
+                        end: 5,
+                    },
+                },
+                expr: Some(
+                    Spanned {
+                        item: Number(
+                            10.0,
+                        ),
+                        span: Span {
+                            line: 1,
+                            start: 8,
+                            end: 10,
+                        },
+                    },
+                ),
+            },
+        ),
+        span: Span {
+            line: 1,
+            start: 0,
+            end: 11,
+        },
+    },
+    Spanned {
+        item: Block(
+            [
+                Spanned {
+                    item: Print(
+                        Spanned {
+                            item: GlobalVariable(
+                                "a",
+                            ),
+                            span: Span {
+                                line: 1,
+                                start: 20,
+                                end: 21,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        line: 1,
+                        start: 14,
+                        end: 22,
+                    },
+                },
+                Spanned {
+                    item: Var(
+                        VarDeclaration {
+                            ident: Spanned {
+                                item: "b",
+                                span: Span {
+                                    line: 1,
+                                    start: 27,
+                                    end: 28,
+                                },
+                            },
+                            expr: Some(
+                                Spanned {
+                                    item: Number(
+                                        15.0,
+                                    ),
+                                    span: Span {
+                                        line: 1,
+                                        start: 31,
+                                        end: 33,
+                                    },
+                                },
+                            ),
+                        },
+                    ),
+                    span: Span {
+                        line: 1,
+                        start: 23,
+                        end: 34,
+                    },
+                },
+            ],
+        ),
+        span: Span {
+            line: 1,
+            start: 12,
+            end: 36,
+        },
+    },
+]

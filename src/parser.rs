@@ -141,15 +141,69 @@ impl<'a> Parser<'a> {
     pub fn parse_stmt(&mut self) -> Result<Spanned<Stmt>, ParserError<'a>> {
         let Some(Ok(token)) = self
             .lexer
-            .next_if(|tok| matches!(tok, Token::Keyword(Keyword::Print)))
+            .next_if(|tok| matches!(tok, Token::Keyword(Keyword::Print) | Token::LBrace))
         else {
             return self.parse_expr_stmt();
         };
 
         match token.item {
             Token::Keyword(Keyword::Print) => self.parse_print_stmt(token),
+            Token::LBrace => self.parse_block_stmt(token),
             _ => unreachable!(),
         }
+    }
+
+    fn parse_block_stmt(
+        &mut self,
+        lbrace: Spanned<Token<'a>>,
+    ) -> Result<Spanned<Stmt>, ParserError<'a>> {
+        debug_assert!(matches!(lbrace.item, Token::LBrace));
+        let mut stmts = Vec::new();
+
+        while self
+            .lexer
+            .is_next(|tok| !matches!(tok, Token::Eof | Token::RBrace))
+        {
+            if let Some(stmt) = self.parse_declaration() {
+                stmts.push(stmt)
+            }
+        }
+
+        let rbrace = match self.lexer.peek() {
+            Some(Ok(rbrace)) if rbrace.item == Token::RBrace => {
+                self.lexer.next().unwrap().unwrap() // consume }
+            }
+            Some(Ok(tok)) => {
+                let err = MissingItemError::new(
+                    self.input,
+                    lbrace.span.line,
+                    MissingItemLocation::Token(Token::RBrace),
+                    lbrace.span.combine(&tok.span).into(),
+                    "Expect '}' after block.",
+                );
+
+                return Err(ParserError::MissingItem(err));
+            }
+            Some(Err(_)) => {
+                let err = self.lexer.next().unwrap().unwrap_err();
+                return Err(ParserError::Lexer(err));
+            }
+            None => {
+                let span = (lbrace.span.start..self.input.len()).into();
+                let err = MissingItemError::new(
+                    self.input,
+                    lbrace.span.line,
+                    MissingItemLocation::End,
+                    span,
+                    "Expect '}' after block.",
+                );
+                return Err(ParserError::MissingItem(err));
+            }
+        };
+
+        let block = Stmt::Block(stmts);
+        let span = lbrace.span.combine(&rbrace.span);
+        Ok(Spanned::new(block, span))
     }
 
     fn parse_print_stmt(
@@ -464,6 +518,7 @@ pub enum Stmt {
     Expr(Spanned<Expr>),
     Print(Spanned<Expr>),
     Var(VarDeclaration),
+    Block(Vec<Spanned<Stmt>>),
 }
 
 impl fmt::Display for Stmt {
@@ -472,6 +527,13 @@ impl fmt::Display for Stmt {
             Stmt::Expr(expr) => write!(f, "{};", expr),
             Stmt::Print(expr) => write!(f, "print {};", expr),
             Stmt::Var(var) => write!(f, "{}", var),
+            Stmt::Block(stmts) => {
+                write!(f, "{{")?;
+                for stmt in stmts {
+                    write!(f, "\n{}", stmt)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
