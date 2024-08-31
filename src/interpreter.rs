@@ -197,12 +197,21 @@ impl<'a> Interpreter<'a> {
 #[derive(Debug, Clone)]
 pub struct Env {
     pub values: HashMap<String, Object>,
+    pub parent: Option<Box<Self>>,
 }
 
 impl Env {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
+            parent: None,
+        }
+    }
+
+    pub fn with_parent(parent: Self) -> Self {
+        Self {
+            values: HashMap::new(),
+            parent: Some(Box::new(parent)),
         }
     }
 
@@ -210,8 +219,13 @@ impl Env {
         match self.values.get(ident) {
             Some(value) => Ok(value),
             None => {
-                let err = RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
-                Err(err)
+                if let Some(parent) = &self.parent {
+                    parent.get(ident)
+                } else {
+                    let err =
+                        RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
+                    Err(err)
+                }
             }
         }
     }
@@ -228,8 +242,13 @@ impl Env {
             }
             std::collections::hash_map::Entry::Vacant(entry) => {
                 let ident = entry.into_key();
-                let err = RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
-                Err(err)
+                if let Some(parent) = &mut self.parent {
+                    parent.assign(ident, value)
+                } else {
+                    let err =
+                        RuntimeErrorBuilder::new().msg(format!("Undefined variable '{ident}'"));
+                    Err(err)
+                }
             }
         }
     }
